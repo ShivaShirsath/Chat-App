@@ -13,6 +13,7 @@ class ChatRequest(BaseModel):
     temperature: float = 0.7
     max_tokens: Optional[int] = None
     model: Optional[str] = None
+    session_id: Optional[str] = None
     # Additional raw parameters for extensibility
     options: Optional[Dict[str, Any]] = None
 

@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.api.v1.endpoints import (
     text_to_text,
@@ -7,7 +8,13 @@ from app.api.v1.endpoints import (
     text_and_image_to_image,
     text_to_video,
     websocket,
+    sessions,
 )
+from app.db.session import engine
+from app.db.models import Base
+
+# Create SQLite tables on startup
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -24,11 +31,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount the storage directory to serve uploads & generated files statically
+app.mount("/storage", StaticFiles(directory="storage"), name="storage")
+
 # Include API endpoints
 app.include_router(text_to_text.router, prefix=f"{settings.API_V1_STR}/text-to-text", tags=["Text-to-Text"])
 app.include_router(text_to_image.router, prefix=f"{settings.API_V1_STR}/text-to-image", tags=["Text-to-Image"])
 app.include_router(text_and_image_to_image.router, prefix=f"{settings.API_V1_STR}/text-and-image-to-image", tags=["Text-and-Image-to-Image"])
 app.include_router(text_to_video.router, prefix=f"{settings.API_V1_STR}/text-to-video", tags=["Text-to-Video"])
+app.include_router(sessions.router, prefix=f"{settings.API_V1_STR}/sessions", tags=["Sessions"])
 app.include_router(websocket.router, prefix=settings.API_V1_STR, tags=["WebSockets"])
 
 import os

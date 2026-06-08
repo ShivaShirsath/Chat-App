@@ -1,19 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-
-export type MessageRole = "system" | "user" | "assistant";
-export type MediaType = "text" | "image" | "video";
-
-export interface Message {
-  id: string;
-  role: MessageRole;
-  content: string;
-  mediaUrl?: string;
-  mediaType?: MediaType;
-  isStreaming?: boolean;
-}
-
-export type ModelEndpoint = "text-to-text" | "text-to-image" | "text-and-image-to-image" | "text-to-video";
-export type ConnectionType = "websocket" | "http-sse";
+import type { Message, ModelEndpoint, ConnectionType, ChatSession } from "../types/chat";
 
 export function useChat() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -22,16 +8,94 @@ export function useChat() {
   const [wsStatus, setWsStatus] = useState<"disconnected" | "connecting" | "connected">("disconnected");
   const [isLoading, setIsLoading] = useState(false);
   const [modelName, setModelName] = useState<string>("llama3.2:latest");
+  
+  // Persisted SQLite Session states
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
 
   const socketRef = useRef<WebSocket | null>(null);
   const messagesRef = useRef<Message[]>([]);
+  const sessionIdRef = useRef<string | null>(null);
   
-  // Keep messagesRef updated to read inside callbacks
+  // Keep refs updated for access inside listener callbacks
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
 
-  // Connect and manage WebSocket lifecycle cleanly (prevents StrictMode double connection)
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
+
+  // Fetch list of active chat sessions from gateway
+  const fetchSessions = useCallback(async () => {
+    try {
+      const res = await fetch("http://localhost:8001/api/v1/sessions");
+      if (res.ok) {
+        const data = await res.json();
+        setSessions(data);
+      }
+    } catch (e) {
+      console.error("Failed to fetch sessions:", e);
+    }
+  }, []);
+
+  // Fetch sessions on component load
+  useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions]);
+
+  // Load message logs of a specific session
+  const loadSession = useCallback(async (id: string) => {
+    try {
+      setIsLoading(true);
+      const res = await fetch(`http://localhost:8001/api/v1/sessions/${id}/messages`);
+      if (res.ok) {
+        const data = await res.json();
+        // Map backend schema (snake_case) to frontend schema (camelCase)
+        const mapped: Message[] = data.map((m: any) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          // Prepend server host to relative storage paths
+          mediaUrl: m.media_url ? `http://localhost:8001${m.media_url}` : undefined,
+          mediaType: m.media_type || undefined
+        }));
+        setMessages(mapped);
+        setSessionId(id);
+      }
+    } catch (e) {
+      console.error(`Failed to load messages for session ${id}:`, e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Delete session from history
+  const deleteSession = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`http://localhost:8001/api/v1/sessions/${id}`, {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        fetchSessions();
+        // If the active session is deleted, clear state
+        if (sessionIdRef.current === id) {
+          setSessionId(null);
+          setMessages([]);
+        }
+      }
+    } catch (e) {
+      console.error(`Failed to delete session ${id}:`, e);
+    }
+  }, [fetchSessions]);
+
+  // Start a fresh chat session
+  const createNewChat = useCallback(() => {
+    setSessionId(null);
+    setMessages([]);
+  }, []);
+
+  // Connect and manage WebSocket lifecycle cleanly
   useEffect(() => {
     if (connectionType !== "websocket") {
       setWsStatus("disconnected");
@@ -88,6 +152,13 @@ export function useChat() {
             return;
           }
 
+          // SQLite session creation event notification
+          if (message.event === "session_created") {
+            setSessionId(message.session_id);
+            fetchSessions();
+            return;
+          }
+
           if (message.event === "chunk") {
             const chunkData = message.data;
             const deltaContent = chunkData.choices?.[0]?.delta?.content || "";
@@ -103,13 +174,16 @@ export function useChat() {
                 list[idx] = {
                   ...last,
                   content: last.content + deltaContent,
-                  mediaUrl: mediaUrl || last.mediaUrl,
+                  mediaUrl: mediaUrl ? `http://localhost:8001${mediaUrl}` : last.mediaUrl,
                   mediaType: mediaType || last.mediaType
                 };
               }
               return list;
             });
           } else if (message.event === "done") {
+            const mediaUrl = message.media_url;
+            const mediaType = message.media_type;
+
             setMessages((prev) => {
               if (prev.length === 0) return prev;
               const list = [...prev];
@@ -118,12 +192,15 @@ export function useChat() {
               if (last && last.role === "assistant") {
                 list[idx] = {
                   ...last,
+                  mediaUrl: mediaUrl ? `http://localhost:8001${mediaUrl}` : last.mediaUrl,
+                  mediaType: mediaType || last.mediaType,
                   isStreaming: false
                 };
               }
               return list;
             });
             setIsLoading(false);
+            fetchSessions(); // Refresh list to update title / active time
           } else if (message.event === "response") {
             const resData = message.data;
             const assistantContent = resData.choices?.[0]?.message?.content || "";
@@ -139,7 +216,7 @@ export function useChat() {
                 list[idx] = {
                   ...last,
                   content: assistantContent,
-                  mediaUrl: mediaUrl || last.mediaUrl,
+                  mediaUrl: mediaUrl ? `http://localhost:8001${mediaUrl}` : last.mediaUrl,
                   mediaType: mediaType || last.mediaType,
                   isStreaming: false
                 };
@@ -147,6 +224,7 @@ export function useChat() {
               return list;
             });
             setIsLoading(false);
+            fetchSessions();
           }
         } catch (err) {
           console.error("Failed to parse WebSocket message:", err);
@@ -177,7 +255,7 @@ export function useChat() {
       }
       socketRef.current = null;
     };
-  }, [connectionType]);
+  }, [connectionType, fetchSessions]);
 
   // SSE Send Helper
   const sendHttpSse = async (chatMessages: Message[], userText: string, imageBase64?: string) => {
@@ -194,7 +272,8 @@ export function useChat() {
       const history = chatMessages.map(m => ({
         role: m.role,
         content: m.content,
-        image_url: m.mediaUrl && m.mediaType === "image" ? m.mediaUrl : undefined
+        // Send relative URL back to server
+        image_url: m.mediaUrl && m.mediaType === "image" ? m.mediaUrl.replace("http://localhost:8001", "") : undefined
       }));
       
       // Add the new user message
@@ -211,7 +290,8 @@ export function useChat() {
           messages: history,
           stream: true,
           temperature: 0.7,
-          model: endpoint === "text-to-text" ? modelName : undefined
+          model: endpoint === "text-to-text" ? modelName : undefined,
+          session_id: sessionIdRef.current || undefined // Persist session ID
         })
       });
 
@@ -233,7 +313,6 @@ export function useChat() {
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
-        // Keep the last partial line in buffer
         buffer = lines.pop() || "";
 
         for (const line of lines) {
@@ -256,11 +335,20 @@ export function useChat() {
               return list;
             });
             setIsLoading(false);
+            fetchSessions();
             break;
           }
 
           try {
             const parsed = JSON.parse(rawData);
+
+            // Handle HTTP SSE session creation notification
+            if (parsed.event === "session_created") {
+              setSessionId(parsed.session_id);
+              fetchSessions();
+              continue;
+            }
+
             const contentDelta = parsed.choices?.[0]?.delta?.content || "";
             const mediaUrl = parsed.media_url;
             const mediaType = parsed.media_type;
@@ -274,7 +362,7 @@ export function useChat() {
                 list[idx] = {
                   ...last,
                   content: last.content + contentDelta,
-                  mediaUrl: mediaUrl || last.mediaUrl,
+                  mediaUrl: mediaUrl ? `http://localhost:8001${mediaUrl}` : last.mediaUrl,
                   mediaType: mediaType || last.mediaType
                 };
               }
@@ -338,7 +426,6 @@ export function useChat() {
 
       setIsLoading(true);
       
-      // Append temporary streaming card
       const assistantMsgId = `assistant-ws-${Date.now()}`;
       setMessages((prev) => [
         ...prev,
@@ -348,7 +435,7 @@ export function useChat() {
       const history = updatedMessages.map(m => ({
         role: m.role,
         content: m.content,
-        image_url: m.mediaUrl && m.mediaType === "image" ? m.mediaUrl : undefined
+        image_url: m.mediaUrl && m.mediaType === "image" ? m.mediaUrl.replace("http://localhost:8001", "") : undefined
       }));
 
       socketRef.current.send(JSON.stringify({
@@ -357,16 +444,22 @@ export function useChat() {
           messages: history,
           stream: true,
           temperature: 0.7,
-          model: endpoint === "text-to-text" ? modelName : undefined
+          model: endpoint === "text-to-text" ? modelName : undefined,
+          session_id: sessionIdRef.current || undefined // Persist session ID
         }
       }));
     }
   }, [messages, endpoint, connectionType, modelName]);
 
   const clearChat = useCallback(() => {
-    setMessages([]);
+    // If there is an active session, delete it from the DB
+    if (sessionIdRef.current) {
+      deleteSession(sessionIdRef.current);
+    } else {
+      setMessages([]);
+    }
     setIsLoading(false);
-  }, []);
+  }, [deleteSession]);
 
   return {
     messages,
@@ -379,6 +472,13 @@ export function useChat() {
     sendMessage,
     clearChat,
     modelName,
-    setModelName
+    setModelName,
+    
+    // persistence exports
+    sessionId,
+    sessions,
+    loadSession,
+    deleteSession,
+    createNewChat
   };
 }

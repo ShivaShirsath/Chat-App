@@ -46,3 +46,63 @@ body {
 .chat-bubble-animation {
   animation: fadeIn 0.3s ease-out forwards;
 }
+
+/* Premium styled tables for markdown */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.25rem 0;
+  font-size: 0.825rem;
+  text-align: left;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #1a1c23;
+  background-color: rgba(12, 13, 20, 0.5);
+  backdrop-filter: blur(8px);
+}
+
+thead {
+  background-color: rgba(99, 102, 241, 0.08);
+  border-bottom: 2px solid #1e202b;
+}
+
+th {
+  color: #a5b4fc;
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #1c1d29;
+  color: #d1d5db;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+tr:hover {
+  background-color: rgba(255, 255, 255, 0.015);
+}
+
+/* Proportional list padding for markdown rendering */
+.prose ul, .prose ol {
+  margin-left: 1.25rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  list-style-position: outside;
+}
+
+.prose li {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.prose p {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
