@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { copyToClipboard } from "../utils/clipboard";
 import { 
   MessageSquare, 
   Image as ImageIcon, 
@@ -7,9 +9,11 @@ import {
   Radio, 
   Zap, 
   Terminal,
-  Plus
+  Plus,
+  Copy,
+  Check
 } from "lucide-react";
-import type { ModelEndpoint, ConnectionType, ActiveTab, ChatSession } from "../types/chat";
+import type { ModelEndpoint, ConnectionType, ActiveTab, ChatSession, Message } from "../types/chat";
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -22,7 +26,7 @@ interface SidebarProps {
   modelName: string;
   setModelName: (name: string) => void;
   clearChat: () => void;
-  messagesCount: number;
+  messages: Message[];
   
   // persistence props
   sessionId: string | null;
@@ -30,6 +34,10 @@ interface SidebarProps {
   loadSession: (id: string) => void;
   deleteSession: (id: string) => void;
   createNewChat: () => void;
+  
+  // Theme settings props
+  codeTheme: string;
+  setCodeTheme: (theme: string) => void;
 }
 
 export default function Sidebar({
@@ -43,15 +51,32 @@ export default function Sidebar({
   modelName,
   setModelName,
   clearChat,
-  messagesCount,
+  messages,
   
   // persistence props
   sessionId,
   sessions,
   loadSession,
   deleteSession,
-  createNewChat
+  createNewChat,
+
+  // Theme settings props
+  codeTheme,
+  setCodeTheme
 }: SidebarProps) {
+  const [chatCopied, setChatCopied] = useState(false);
+
+  const handleCopyChat = async () => {
+    if (messages.length === 0) return;
+    const formatted = messages
+      .map(m => `### ${m.role === "user" ? "User" : "Assistant"}\n\n${m.content}`)
+      .join("\n\n---\n\n");
+    const success = await copyToClipboard(formatted);
+    if (success) {
+      setChatCopied(true);
+      setTimeout(() => setChatCopied(false), 2000);
+    }
+  };
   return (
     <div className="w-[300px] border-r border-[#1a1c23] bg-[#0b0c11] flex flex-col shrink-0">
       
@@ -191,6 +216,23 @@ export default function Sidebar({
             </select>
           </div>
         )}
+
+        {/* CODE THEME SELECTOR */}
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block">
+            Code Block Theme
+          </label>
+          <select
+            value={codeTheme}
+            onChange={(e) => setCodeTheme(e.target.value)}
+            className="w-full py-2 px-3 rounded-lg text-xs font-medium bg-[#14151b] border border-[#1e202b] text-indigo-300 focus:outline-none focus:border-violet-500/50 transition-all cursor-pointer"
+          >
+            <option value="tomorrow">Tomorrow (Dark Classic)</option>
+            <option value="okaidia">Okaidia (High Contrast)</option>
+            <option value="twilight">Twilight (Retro Muted)</option>
+            <option value="default">Default (Light/Original)</option>
+          </select>
+        </div>
       </div>
 
       {/* CHAT SESSION HISTORY */}
@@ -315,10 +357,28 @@ export default function Sidebar({
 
       {/* BOTTOM UTILS */}
       <div className="p-4 border-t border-[#1a1c23] space-y-2 shrink-0">
+        {messages.length > 0 && (
+          <button
+            onClick={handleCopyChat}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold border border-[#2b2d3c] bg-[#14151f] text-indigo-300 hover:bg-[#1e202f] hover:text-white transition-all cursor-pointer"
+          >
+            {chatCopied ? (
+              <>
+                <Check className="h-3.5 w-3.5 text-emerald-400" />
+                Copied Conversation!
+              </>
+            ) : (
+              <>
+                <Copy className="h-3.5 w-3.5" />
+                Copy Conversation
+              </>
+            )}
+          </button>
+        )}
         <button
           onClick={clearChat}
-          disabled={messagesCount === 0}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold border border-red-500/30 text-red-400 hover:bg-red-950/20 disabled:opacity-40 disabled:hover:bg-transparent transition-all"
+          disabled={messages.length === 0}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold border border-red-500/30 text-red-400 hover:bg-red-950/20 disabled:opacity-40 disabled:hover:bg-transparent transition-all cursor-pointer"
         >
           <Trash2 className="h-3.5 w-3.5" />
           Clear Conversation

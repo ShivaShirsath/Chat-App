@@ -6,9 +6,10 @@ import MessageBubble from "./MessageBubble";
 interface ChatWindowProps {
   messages: Message[];
   applyTemplate: (prompt: string, modelType: ModelEndpoint) => void;
+  sessionId: string | null;
 }
 
-export default function ChatWindow({ messages, applyTemplate }: ChatWindowProps) {
+export default function ChatWindow({ messages, applyTemplate, sessionId }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   // Auto scroll to bottom when messages update
@@ -93,7 +94,7 @@ export default function ChatWindow({ messages, applyTemplate }: ChatWindowProps)
     <div className="flex-1 overflow-y-auto px-6 py-8 space-y-6">
       <div className="max-w-4xl mx-auto space-y-6">
         {messages.map((msg) => (
-          <MessageBubble key={msg.id} msg={msg} />
+          <MessageBubble key={msg.id} msg={msg} sessionId={sessionId} />
         ))}
         
         <div ref={messagesEndRef} />

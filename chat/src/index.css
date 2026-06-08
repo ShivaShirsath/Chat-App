@@ -106,3 +106,33 @@ tr:hover {
   margin-top: 0.5rem;
   margin-bottom: 0.5rem;
 }
+
+/* Deep link target highlight animation */
+@keyframes pulseHighlight {
+  0% {
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.6);
+    background-color: rgba(139, 92, 246, 0.25);
+    border-color: rgba(139, 92, 246, 0.8);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(139, 92, 246, 0);
+    background-color: rgba(139, 92, 246, 0.1);
+    border-color: rgba(139, 92, 246, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0);
+    background-color: transparent;
+    border-color: #191a24;
+  }
+}
+
+.highlight-pulse {
+  animation: pulseHighlight 2.5s ease-out forwards;
+}
+
+/* Fix spacing of paragraphs inside lists to prevent list items breaking */
+.prose li p {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  display: inline;
+}
