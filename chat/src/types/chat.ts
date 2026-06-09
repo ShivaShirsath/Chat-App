@@ -12,7 +12,7 @@ export interface Message {
 
 export type ModelEndpoint = "text-to-text" | "text-to-image" | "text-and-image-to-image" | "text-to-video";
 export type ConnectionType = "websocket" | "http-sse";
-export type ActiveTab = "chat" | "readme";
+export type ActiveTab = "chat" | "readme" | "agent";
 
 export interface ChatSession {
   id: string;

@@ -11,7 +11,8 @@ import {
   Terminal,
   Plus,
   Copy,
-  Check
+  Check,
+  Cpu
 } from "lucide-react";
 import type { ModelEndpoint, ConnectionType, ActiveTab, ChatSession, Message, OllamaModel } from "../types/chat";
 
@@ -154,6 +155,17 @@ export default function Sidebar({
           >
             <Terminal className="h-4 w-4" />
             Readme Doc Viewer
+          </button>
+          <button
+            onClick={() => setActiveTab("agent")}
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all text-left ${
+              activeTab === "agent"
+                ? "bg-violet-600/15 border border-violet-500/30 text-violet-300"
+                : "bg-transparent text-gray-400 hover:bg-[#14151b] hover:text-white"
+            }`}
+          >
+            <Cpu className="h-4 w-4" />
+            Agent workspace
           </button>
         </div>
       </div>

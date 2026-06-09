@@ -9,6 +9,7 @@ from app.api.v1.endpoints import (
     text_to_video,
     websocket,
     sessions,
+    agent,
 )
 from app.db.session import engine
 from app.db.models import Base
@@ -40,6 +41,7 @@ app.include_router(text_to_image.router, prefix=f"{settings.API_V1_STR}/text-to-
 app.include_router(text_and_image_to_image.router, prefix=f"{settings.API_V1_STR}/text-and-image-to-image", tags=["Text-and-Image-to-Image"])
 app.include_router(text_to_video.router, prefix=f"{settings.API_V1_STR}/text-to-video", tags=["Text-to-Video"])
 app.include_router(sessions.router, prefix=f"{settings.API_V1_STR}/sessions", tags=["Sessions"])
+app.include_router(agent.router, prefix=f"{settings.API_V1_STR}/agent", tags=["Agent"])
 app.include_router(websocket.router, prefix=settings.API_V1_STR, tags=["WebSockets"])
 
 import os

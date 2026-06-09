@@ -6,6 +6,7 @@ import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
 import ChatInput from "./components/ChatInput";
 import ReadmeViewer from "./components/ReadmeViewer";
+import AgentWorkspace from "./components/AgentWorkspace";
 import type { ActiveTab, ModelEndpoint } from "./types/chat";
 import "./App.css";
 
@@ -256,6 +257,8 @@ export default function App() {
         {/* WORKSPACE AREA */}
         {activeTab === "readme" ? (
           <ReadmeViewer onBackToChat={() => setActiveTab("chat")} />
+        ) : activeTab === "agent" ? (
+          <AgentWorkspace modelName={modelName} setModelName={setModelName} models={models} />
         ) : (
           <>
             {/* MESSAGE CONTAINER */}
