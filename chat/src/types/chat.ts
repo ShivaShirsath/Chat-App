@@ -20,3 +20,15 @@ export interface ChatSession {
   created_at: string;
   updated_at: string;
 }
+
+export interface OllamaModel {
+  id: string;
+  name: string;
+  friendly_label: string;
+  family: string;
+  tier: string;
+  is_uncensored: boolean;
+  size_bytes: number;
+  parameter_size: string;
+  quantization_level: string;
+}

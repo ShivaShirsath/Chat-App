@@ -31,6 +31,7 @@ export default function App() {
     clearChat,
     modelName,
     setModelName,
+    models,
     sessionId,
     sessions,
     loadSession,
@@ -186,6 +187,7 @@ export default function App() {
         createNewChat={createNewChat}
         codeTheme={codeTheme}
         setCodeTheme={setCodeTheme}
+        models={models}
       />
 
       {/* MAIN CONTAINER */}
@@ -266,6 +268,9 @@ export default function App() {
               sendMessage={sendMessage}
               input={input}
               setInput={setInput}
+              modelName={modelName}
+              setModelName={setModelName}
+              models={models}
             />
           </>
         )}

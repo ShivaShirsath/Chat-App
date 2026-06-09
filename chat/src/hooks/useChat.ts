@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { Message, ModelEndpoint, ConnectionType, ChatSession } from "../types/chat";
+import type { Message, ModelEndpoint, ConnectionType, ChatSession, OllamaModel } from "../types/chat";
 
 export function useChat() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -8,6 +8,7 @@ export function useChat() {
   const [wsStatus, setWsStatus] = useState<"disconnected" | "connecting" | "connected">("disconnected");
   const [isLoading, setIsLoading] = useState(false);
   const [modelName, setModelName] = useState<string>("llama3.2:latest");
+  const [models, setModels] = useState<OllamaModel[]>([]);
   
   // Persisted SQLite Session states
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -39,10 +40,31 @@ export function useChat() {
     }
   }, []);
 
-  // Fetch sessions on component load
+  // Fetch list of active Ollama models from gateway
+  const fetchModels = useCallback(async () => {
+    try {
+      const res = await fetch("http://localhost:8001/api/v1/text-to-text/models");
+      if (res.ok) {
+        const data = await res.json();
+        setModels(data);
+        if (data.length > 0) {
+          // If the default model (llama3.2:latest) is not available, default to the first one in the list
+          const hasDefault = data.some((m: any) => m.id === "llama3.2:latest" || m.name === "llama3.2:latest");
+          if (!hasDefault) {
+            setModelName(data[0].id);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch models:", e);
+    }
+  }, []);
+
+  // Fetch sessions and models on component load
   useEffect(() => {
     fetchSessions();
-  }, [fetchSessions]);
+    fetchModels();
+  }, [fetchSessions, fetchModels]);
 
   // Load message logs of a specific session
   const loadSession = useCallback(async (id: string) => {
@@ -473,6 +495,7 @@ export function useChat() {
     clearChat,
     modelName,
     setModelName,
+    models,
     
     // persistence exports
     sessionId,

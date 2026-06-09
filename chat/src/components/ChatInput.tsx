@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { Send, Paperclip, X, RefreshCw, CornerDownLeft } from "lucide-react";
-import type { ModelEndpoint } from "../types/chat";
+import type { ModelEndpoint, OllamaModel } from "../types/chat";
 
 interface ChatInputProps {
   endpoint: ModelEndpoint;
@@ -8,6 +8,9 @@ interface ChatInputProps {
   sendMessage: (content: string, imageBase64?: string) => void;
   input: string;
   setInput: (val: string) => void;
+  modelName: string;
+  setModelName: (val: string) => void;
+  models: OllamaModel[];
 }
 
 export default function ChatInput({ 
@@ -15,11 +18,31 @@ export default function ChatInput({
   isLoading, 
   sendMessage,
   input,
-  setInput
+  setInput,
+  modelName,
+  setModelName,
+  models
 }: ChatInputProps) {
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Group models by tier category
+  const groupedModels = models.reduce((acc, model) => {
+    const tier = model.tier || "Other Models";
+    if (!acc[tier]) acc[tier] = [];
+    acc[tier].push(model);
+    return acc;
+  }, {} as Record<string, OllamaModel[]>);
+
+  const tiersOrder = [
+    "Ultra-Lightweight / Fast",
+    "Balanced / Lightweight",
+    "Standard / Capable",
+    "Large / Advanced"
+  ];
+  const otherTiers = Object.keys(groupedModels).filter(t => !tiersOrder.includes(t));
+  const allTiers = [...tiersOrder, ...otherTiers];
 
   const handleSend = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -177,6 +200,40 @@ export default function ChatInput({
                 <CornerDownLeft className="h-2.5 w-2.5" />
                 Send
               </span>
+            )}
+
+            {/* Dynamic model selector inside the chat box toolbar */}
+            {endpoint === "text-to-text" && (
+              <select
+                value={modelName}
+                onChange={(e) => setModelName(e.target.value)}
+                className="max-w-[140px] sm:max-w-[180px] py-1.5 px-2.5 rounded-lg text-xs font-semibold bg-[#1a1c25] border border-[#2b2d3c] text-indigo-300 focus:outline-none focus:border-violet-500/50 transition-all cursor-pointer truncate"
+              >
+                {models.length === 0 ? (
+                  <>
+                    <option value="llama3.2:latest">Llama 3.2 (3B, Q4_K_M) - Fast & Accurate</option>
+                    <option value="llama3.2:1b">Llama 3.2 (1B, Q8_0) - Ultra Fast</option>
+                    <option value="sadiq-bd/llama3.2-3b-uncensored">Llama 3.2 Uncensored (3B, Q4) - Light & Uncensored</option>
+                    <option value="sadiq-bd/llama3.2-1b-uncensored">Llama 3.2 Uncensored (1B, Q4) - Fast & Uncensored</option>
+                    <option value="phi3.5">Phi 3.5 (3.8B) - Lightweight & Strong</option>
+                    <option value="qwen2.5:0.5b">Qwen 2.5 (0.5B) - Extremely Lightweight</option>
+                  </>
+                ) : (
+                  allTiers.map((tier) => {
+                    const group = groupedModels[tier];
+                    if (!group || group.length === 0) return null;
+                    return (
+                      <optgroup key={tier} label={tier} className="bg-[#14151b] text-gray-500 font-bold text-[10px] uppercase tracking-wider">
+                        {group.map((model) => (
+                          <option key={model.id} value={model.id} className="text-indigo-300 bg-[#14151b] font-medium text-xs normal-case tracking-normal">
+                            {model.friendly_label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  })
+                )}
+              </select>
             )}
 
             <button

@@ -42,3 +42,45 @@ The React + TS + Tailwind v4 frontend client features:
 - **Pure State Updates:** Prevents token duplication issues caused by React StrictMode double rendering.
 - **Model Switcher:** Quick options in the sidebar to swap active Ollama models.
 - **Interactive Renderers:** Special card renders for text formatting, zoomable image outputs, and standard video player cards.
+
+---
+
+## 🦙 Ollama Integration & Model Management
+
+### 1. Installation of Ollama
+To run local models, you need to install Ollama:
+- **macOS / Windows**: Download the installer from the [official Ollama download page](https://ollama.com/download).
+- **Linux**: Install using the official script:
+  ```bash
+  curl -fsSL https://ollama.com/install.sh | sh
+  ```
+- **Verification**: Verify that the installation is successful by running:
+  ```bash
+  ollama --version
+  ```
+
+### 2. Dynamically Discovered Models
+The application dynamically fetches and groups all active models from your local Ollama instance. Currently, the following models on your machine are detected:
+- **Ultra-Lightweight / Fast**:
+  - `qwen2.5-coder:1.5b` (Qwen 2.5 Coder 1.5B)
+  - `sadiq-bd/llama3.2-1b-uncensored:latest` (Llama 3.2 Uncensored 1.5B)
+  - `llama3.2:1b` (Llama 3.2 1.2B)
+  - `qwen2.5:0.5b` (Qwen 2.5 0.5B)
+  - `XDPXI/Codex-0.2-Mini:0.5b` (Codex 0.2 Mini 0.5B)
+- **Balanced / Lightweight**:
+  - `llama3.2:latest` (Llama 3.2 3.2B) - Default model
+  - `sadiq-bd/llama3.2-3b-uncensored:latest` (Llama 3.2 Uncensored 3.6B)
+  - `phi3.5:latest` (Phi 3.5 3.8B)
+
+### 3. Adding New Ollama Models (Fully Automated)
+To configure and use a new model in the project, the process is fully automated:
+1. **Pull the model locally** via Ollama CLI:
+   ```bash
+   ollama pull <model_name>
+   ```
+   *Example:*
+   ```bash
+   ollama pull mistral
+   ```
+2. **Automatic Detection & Categorization**: The backend `GET /api/v1/text-to-text/models` endpoint automatically detects the newly pulled model, parses its parameter size and family metadata, classifies it into a performance tier (e.g., *Ultra-Lightweight / Fast*, *Balanced / Lightweight*, *Standard / Capable*, or *Large / Advanced*), and marks whether it is an uncensored variant.
+3. **UI Integration**: The frontend dynamic model dropdown groups and populates the model selector under the correct `optgroup` category automatically upon reloading the application. No manual code changes are required in either the frontend or backend!

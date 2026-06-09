@@ -13,6 +13,15 @@ from app.services.storage_service import storage_service
 
 router = APIRouter()
 
+@router.get("/models")
+async def get_models(service: BaseModelService = Depends(get_text_to_text_service)):
+    """
+    Fetch all active/installed models from the local Ollama instance and categorize them.
+    """
+    if hasattr(service, "get_installed_models"):
+        return await service.get_installed_models()
+    return []
+
 @router.post("/chat", response_model=None)
 async def chat(
     request: ChatRequest,

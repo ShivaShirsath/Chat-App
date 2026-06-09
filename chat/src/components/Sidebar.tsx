@@ -13,7 +13,7 @@ import {
   Copy,
   Check
 } from "lucide-react";
-import type { ModelEndpoint, ConnectionType, ActiveTab, ChatSession, Message } from "../types/chat";
+import type { ModelEndpoint, ConnectionType, ActiveTab, ChatSession, Message, OllamaModel } from "../types/chat";
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -38,6 +38,9 @@ interface SidebarProps {
   // Theme settings props
   codeTheme: string;
   setCodeTheme: (theme: string) => void;
+
+  // Dynamic Ollama models
+  models: OllamaModel[];
 }
 
 export default function Sidebar({
@@ -62,9 +65,29 @@ export default function Sidebar({
 
   // Theme settings props
   codeTheme,
-  setCodeTheme
+  setCodeTheme,
+
+  // Dynamic Ollama models
+  models
 }: SidebarProps) {
   const [chatCopied, setChatCopied] = useState(false);
+
+  // Group models by tier category
+  const groupedModels = models.reduce((acc, model) => {
+    const tier = model.tier || "Other Models";
+    if (!acc[tier]) acc[tier] = [];
+    acc[tier].push(model);
+    return acc;
+  }, {} as Record<string, OllamaModel[]>);
+
+  const tiersOrder = [
+    "Ultra-Lightweight / Fast",
+    "Balanced / Lightweight",
+    "Standard / Capable",
+    "Large / Advanced"
+  ];
+  const otherTiers = Object.keys(groupedModels).filter(t => !tiersOrder.includes(t));
+  const allTiers = [...tiersOrder, ...otherTiers];
 
   const handleCopyChat = async () => {
     if (messages.length === 0) return;
@@ -207,12 +230,30 @@ export default function Sidebar({
               onChange={(e) => setModelName(e.target.value)}
               className="w-full py-2 px-3 rounded-lg text-xs font-medium bg-[#14151b] border border-[#1e202b] text-indigo-300 focus:outline-none focus:border-violet-500/50 transition-all cursor-pointer"
             >
-              <option value="llama3.2:latest">Llama 3.2 (3B, Q4_K_M) - Fast & Accurate</option>
-              <option value="llama3.2:1b">Llama 3.2 (1B, Q8_0) - Ultra Fast</option>
-              <option value="sadiq-bd/llama3.2-3b-uncensored">Llama 3.2 Uncensored (3B, Q4) - Light & Uncensored</option>
-              <option value="sadiq-bd/llama3.2-1b-uncensored">Llama 3.2 Uncensored (1B, Q4) - Fast & Uncensored</option>
-              <option value="dolphin-phi">Dolphin Phi (2.7B) - Light Uncensored</option>
-              <option value="hf.co/ICEPVP8977/Uncensored_gemma_2b:latest">Uncensored Gemma 2B (F16) - High RAM usage</option>
+              {models.length === 0 ? (
+                <>
+                  <option value="llama3.2:latest">Llama 3.2 (3B, Q4_K_M) - Fast & Accurate</option>
+                  <option value="llama3.2:1b">Llama 3.2 (1B, Q8_0) - Ultra Fast</option>
+                  <option value="sadiq-bd/llama3.2-3b-uncensored">Llama 3.2 Uncensored (3B, Q4) - Light & Uncensored</option>
+                  <option value="sadiq-bd/llama3.2-1b-uncensored">Llama 3.2 Uncensored (1B, Q4) - Fast & Uncensored</option>
+                  <option value="phi3.5">Phi 3.5 (3.8B) - Lightweight & Strong</option>
+                  <option value="qwen2.5:0.5b">Qwen 2.5 (0.5B) - Extremely Lightweight</option>
+                </>
+              ) : (
+                allTiers.map((tier) => {
+                  const group = groupedModels[tier];
+                  if (!group || group.length === 0) return null;
+                  return (
+                    <optgroup key={tier} label={tier} className="bg-[#14151b] text-gray-500 font-bold text-[10px] uppercase tracking-wider">
+                      {group.map((model) => (
+                        <option key={model.id} value={model.id} className="text-indigo-300 bg-[#14151b] font-medium text-xs normal-case tracking-normal">
+                          {model.friendly_label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })
+              )}
             </select>
           </div>
         )}
