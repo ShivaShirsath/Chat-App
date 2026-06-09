@@ -1,4 +1,27 @@
 @import "tailwindcss";
+@import "./styles/code-themes/base.css";
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
 
 @layer base {
   :root {
@@ -10,11 +33,12 @@ body {
   margin: 0;
   padding: 0;
   font-family: var(--font-sans);
-  background-color: #0b0c10;
-  color: #f3f4f6;
+  background-color: var(--background);
+  color: var(--foreground);
   overflow: hidden;
   height: 100vh;
   width: 100vw;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* Custom scrollbar for chat lists */
@@ -24,17 +48,17 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.03);
+  background: transparent;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--border);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--muted-foreground);
 }
 
 /* Scroll initial target animation */
@@ -56,18 +80,17 @@ table {
   text-align: left;
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid #1a1c23;
-  background-color: rgba(12, 13, 20, 0.5);
-  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  background-color: var(--card);
 }
 
 thead {
-  background-color: rgba(99, 102, 241, 0.08);
-  border-bottom: 2px solid #1e202b;
+  background-color: var(--secondary);
+  border-bottom: 2px solid var(--border);
 }
 
 th {
-  color: #a5b4fc;
+  color: var(--foreground);
   font-weight: 600;
   padding: 0.75rem 1rem;
   font-size: 0.8rem;
@@ -77,8 +100,8 @@ th {
 
 td {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid #1c1d29;
-  color: #d1d5db;
+  border-bottom: 1px solid var(--border);
+  color: var(--foreground);
 }
 
 tr:last-child td {
@@ -86,7 +109,7 @@ tr:last-child td {
 }
 
 tr:hover {
-  background-color: rgba(255, 255, 255, 0.015);
+  background-color: var(--secondary);
 }
 
 /* Proportional list padding for markdown rendering */
@@ -122,7 +145,7 @@ tr:hover {
   100% {
     box-shadow: 0 0 0 0 rgba(139, 92, 246, 0);
     background-color: transparent;
-    border-color: #191a24;
+    border-color: var(--border);
   }
 }
 

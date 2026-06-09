@@ -179,9 +179,9 @@ export default function MermaidDiagram({ code }: MermaidDiagramProps) {
   if (error) {
     return (
       <div className="my-3 space-y-2 font-sans text-left">
-        <div className="p-3 rounded-xl border border-red-500/20 bg-red-950/10 text-xs font-mono text-red-400">
+        <div className="p-3 rounded-xl border border-destructive/20 bg-destructive/10 text-xs font-mono text-destructive">
           <div className="flex items-center gap-1.5 font-bold mb-1.5">
-            <AlertCircle className="h-3.5 w-3.5 text-red-400 shrink-0" />
+            <AlertCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
             <span>Mermaid Render Error</span>
           </div>
           <pre className="whitespace-pre-wrap text-[11px] leading-relaxed opacity-80">{error}</pre>
@@ -192,29 +192,29 @@ export default function MermaidDiagram({ code }: MermaidDiagramProps) {
   }
 
   return (
-    <div className="my-3 rounded-xl overflow-hidden border border-[#1e202e] bg-[#0c0d14] font-sans text-left">
+    <div className="my-3 rounded-xl overflow-hidden border border-border bg-card font-sans text-left">
       {/* Header toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-[#12131b] border-b border-[#1c1d29]">
-        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+      <div className="flex items-center justify-between px-4 py-2 bg-muted border-b border-border">
+        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
           Mermaid Diagram
         </span>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowCode(!showCode)}
-            className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 hover:text-white transition-all bg-[#1b1c28] px-2 py-1 rounded border border-[#2b2d3c] cursor-pointer"
+            className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground hover:text-primary-foreground transition-all bg-secondary px-2 py-1 rounded border border-border cursor-pointer"
           >
             {showCode ? (
-              <><Eye className="h-3 w-3 text-indigo-400" />Show Diagram</>
+              <><Eye className="h-3 w-3 text-primary" />Show Diagram</>
             ) : (
-              <><Code className="h-3 w-3 text-indigo-400" />Show Code</>
+              <><Code className="h-3 w-3 text-primary" />Show Code</>
             )}
           </button>
           <button
             onClick={handleCopy}
-            className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-400 hover:text-white transition-all bg-[#1b1c28] px-2 py-1 rounded border border-[#2b2d3c] cursor-pointer"
+            className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground hover:text-primary-foreground transition-all bg-secondary px-2 py-1 rounded border border-border cursor-pointer"
           >
             {copied ? (
-              <><Check className="h-3 w-3 text-emerald-400" />Copied!</>
+              <><Check className="h-3 w-3 text-primary" />Copied!</>
             ) : (
               <><Copy className="h-3 w-3" />Copy Code</>
             )}
@@ -226,11 +226,11 @@ export default function MermaidDiagram({ code }: MermaidDiagramProps) {
       {showCode ? (
         <CodeBlock code={cleanCode} language="mermaid" hideHeader />
       ) : (
-        <div className="p-5 flex justify-center overflow-x-auto bg-[#08090d] select-text min-h-[80px]">
+        <div className="p-5 flex justify-center overflow-x-auto bg-background select-text min-h-[80px]">
           {svg ? (
             <div dangerouslySetInnerHTML={{ __html: svg }} />
           ) : (
-            <span className="text-xs text-gray-500 animate-pulse self-center">
+            <span className="text-xs text-muted-foreground animate-pulse self-center">
               Rendering diagram…
             </span>
           )}

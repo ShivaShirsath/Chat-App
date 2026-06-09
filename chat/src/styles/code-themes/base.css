@@ -1,0 +1,376 @@
+:root,
+:root[data-code-theme="adaptive"] {
+  --code-surface: color-mix(in srgb, var(--card, #ffffff) 94%, var(--primary, #2563eb) 6%);
+  --code-header: color-mix(in srgb, var(--card, #ffffff) 88%, var(--foreground, #0f172a) 4%);
+  --code-foreground: color-mix(in srgb, var(--foreground, #0f172a) 96%, var(--primary, #2563eb) 4%);
+  --code-muted: color-mix(in srgb, var(--muted-foreground, #64748b) 88%, var(--foreground, #0f172a) 12%);
+  --code-border: color-mix(in srgb, var(--border, #cbd5e1) 72%, var(--primary, #2563eb) 28%);
+  --code-button: color-mix(in srgb, var(--card, #ffffff) 88%, var(--primary, #2563eb) 8%);
+  --code-button-hover: color-mix(in srgb, var(--card, #ffffff) 78%, var(--primary, #2563eb) 14%);
+  --code-shadow: var(--primary, #2563eb);
+  --code-inline-bg: color-mix(in srgb, var(--muted, #f1f5f9) 86%, var(--primary, #2563eb) 14%);
+  --code-inline-fg: var(--primary, #2563eb);
+  --code-inline-border: color-mix(in srgb, var(--border, #cbd5e1) 78%, transparent);
+  --code-comment: #64748b;
+  --code-punctuation: #475569;
+  --code-red: #dc2626;
+  --code-orange: #ea580c;
+  --code-green: #16a34a;
+  --code-cyan: #0891b2;
+  --code-purple: #7c3aed;
+  --code-blue: #2563eb;
+  --code-yellow: #ca8a04;
+}
+
+:root.dark,
+:root.dark[data-code-theme="adaptive"] {
+  --code-surface: color-mix(in srgb, var(--card, #111827) 86%, black 14%);
+  --code-header: color-mix(in srgb, var(--card, #111827) 76%, black 24%);
+  --code-foreground: color-mix(in srgb, var(--foreground, #f8fafc) 94%, white 6%);
+  --code-muted: color-mix(in srgb, var(--muted-foreground, #94a3b8) 88%, var(--foreground, #f8fafc) 12%);
+  --code-border: color-mix(in srgb, var(--border, #334155) 78%, var(--primary, #60a5fa) 22%);
+  --code-button: color-mix(in srgb, var(--card, #111827) 78%, var(--primary, #60a5fa) 12%);
+  --code-button-hover: color-mix(in srgb, var(--card, #111827) 68%, var(--primary, #60a5fa) 18%);
+  --code-shadow: black;
+  --code-inline-bg: color-mix(in srgb, var(--muted, #1e293b) 82%, var(--primary, #60a5fa) 18%);
+  --code-inline-fg: var(--primary, #60a5fa);
+  --code-inline-border: color-mix(in srgb, var(--border, #334155) 80%, transparent);
+  --code-comment: #94a3b8;
+  --code-punctuation: #cbd5e1;
+  --code-red: #f87171;
+  --code-orange: #fb923c;
+  --code-green: #86efac;
+  --code-cyan: #67e8f9;
+  --code-purple: #c4b5fd;
+  --code-blue: #93c5fd;
+  --code-yellow: #fde047;
+}
+
+:root[data-code-theme="github-light"] {
+  --code-surface: #ffffff;
+  --code-header: #f6f8fa;
+  --code-foreground: #24292f;
+  --code-muted: #57606a;
+  --code-border: #d0d7de;
+  --code-button: #ffffff;
+  --code-button-hover: #eef2f6;
+  --code-shadow: #6e7781;
+  --code-inline-bg: #eff3f6;
+  --code-inline-fg: #0969da;
+  --code-inline-border: #d0d7de;
+  --code-comment: #6e7781;
+  --code-punctuation: #57606a;
+  --code-red: #cf222e;
+  --code-orange: #bc4c00;
+  --code-green: #116329;
+  --code-cyan: #1b7c83;
+  --code-purple: #8250df;
+  --code-blue: #0969da;
+  --code-yellow: #9a6700;
+}
+
+:root[data-code-theme="github-dark"] {
+  --code-surface: #0d1117;
+  --code-header: #161b22;
+  --code-foreground: #c9d1d9;
+  --code-muted: #8b949e;
+  --code-border: #30363d;
+  --code-button: #21262d;
+  --code-button-hover: #30363d;
+  --code-shadow: #000000;
+  --code-inline-bg: #161b22;
+  --code-inline-fg: #79c0ff;
+  --code-inline-border: #30363d;
+  --code-comment: #8b949e;
+  --code-punctuation: #c9d1d9;
+  --code-red: #ff7b72;
+  --code-orange: #ffa657;
+  --code-green: #7ee787;
+  --code-cyan: #a5d6ff;
+  --code-purple: #d2a8ff;
+  --code-blue: #79c0ff;
+  --code-yellow: #d29922;
+}
+
+:root[data-code-theme="dracula"] {
+  --code-surface: #282a36;
+  --code-header: #21222c;
+  --code-foreground: #f8f8f2;
+  --code-muted: #bd93f9;
+  --code-border: #44475a;
+  --code-button: #343746;
+  --code-button-hover: #44475a;
+  --code-shadow: #000000;
+  --code-inline-bg: #343746;
+  --code-inline-fg: #8be9fd;
+  --code-inline-border: #44475a;
+  --code-comment: #6272a4;
+  --code-punctuation: #f8f8f2;
+  --code-red: #ff5555;
+  --code-orange: #ffb86c;
+  --code-green: #50fa7b;
+  --code-cyan: #8be9fd;
+  --code-purple: #bd93f9;
+  --code-blue: #8be9fd;
+  --code-yellow: #f1fa8c;
+}
+
+:root[data-code-theme="nord"] {
+  --code-surface: #2e3440;
+  --code-header: #3b4252;
+  --code-foreground: #d8dee9;
+  --code-muted: #88c0d0;
+  --code-border: #4c566a;
+  --code-button: #3b4252;
+  --code-button-hover: #434c5e;
+  --code-shadow: #000000;
+  --code-inline-bg: #3b4252;
+  --code-inline-fg: #88c0d0;
+  --code-inline-border: #4c566a;
+  --code-comment: #81a1c1;
+  --code-punctuation: #eceff4;
+  --code-red: #bf616a;
+  --code-orange: #d08770;
+  --code-green: #a3be8c;
+  --code-cyan: #8fbcbb;
+  --code-purple: #b48ead;
+  --code-blue: #88c0d0;
+  --code-yellow: #ebcb8b;
+}
+
+:root[data-code-theme="solarized-light"] {
+  --code-surface: #fdf6e3;
+  --code-header: #eee8d5;
+  --code-foreground: #586e75;
+  --code-muted: #657b83;
+  --code-border: #d8d0b8;
+  --code-button: #fdf6e3;
+  --code-button-hover: #e3dac3;
+  --code-shadow: #93a1a1;
+  --code-inline-bg: #eee8d5;
+  --code-inline-fg: #268bd2;
+  --code-inline-border: #d8d0b8;
+  --code-comment: #93a1a1;
+  --code-punctuation: #657b83;
+  --code-red: #dc322f;
+  --code-orange: #cb4b16;
+  --code-green: #859900;
+  --code-cyan: #2aa198;
+  --code-purple: #6c71c4;
+  --code-blue: #268bd2;
+  --code-yellow: #b58900;
+}
+
+:root[data-code-theme="solarized-dark"] {
+  --code-surface: #002b36;
+  --code-header: #073642;
+  --code-foreground: #839496;
+  --code-muted: #93a1a1;
+  --code-border: #0f4a58;
+  --code-button: #073642;
+  --code-button-hover: #0f4a58;
+  --code-shadow: #000000;
+  --code-inline-bg: #073642;
+  --code-inline-fg: #2aa198;
+  --code-inline-border: #0f4a58;
+  --code-comment: #586e75;
+  --code-punctuation: #93a1a1;
+  --code-red: #dc322f;
+  --code-orange: #cb4b16;
+  --code-green: #859900;
+  --code-cyan: #2aa198;
+  --code-purple: #6c71c4;
+  --code-blue: #268bd2;
+  --code-yellow: #b58900;
+}
+
+:root {
+  color-scheme: light;
+}
+
+:root.dark {
+  color-scheme: dark;
+}
+
+.code-block {
+  background: var(--code-surface) !important;
+  border-color: var(--code-border) !important;
+  color: var(--code-foreground) !important;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--code-shadow) 10%, transparent);
+}
+
+.code-block__header {
+  background: var(--code-header) !important;
+  border-color: var(--code-border) !important;
+  color: var(--code-muted) !important;
+}
+
+.code-block__copy-button {
+  background: var(--code-button) !important;
+  border-color: var(--code-border) !important;
+  color: var(--code-muted) !important;
+}
+
+.code-block__copy-button:hover {
+  background: var(--code-button-hover) !important;
+  color: var(--code-foreground) !important;
+}
+
+.code-block__editor {
+  background: var(--code-surface);
+}
+
+.code-block__editor .monaco-editor,
+.code-block__editor .monaco-editor-background,
+.code-block__editor .monaco-editor .margin {
+  background-color: var(--code-surface) !important;
+}
+
+.code-block__editor .monaco-editor {
+  --vscode-focusBorder: transparent;
+  outline: none;
+}
+
+.code-block__editor .monaco-editor .view-lines {
+  padding-left: 0;
+}
+
+.code-block__editor .monaco-editor .lines-content,
+.code-block__editor .monaco-editor .view-line {
+  font-weight: 500;
+}
+
+.code-block__editor .monaco-scrollable-element > .scrollbar > .slider {
+  background: color-mix(in srgb, var(--code-muted) 35%, transparent) !important;
+}
+
+.code-inline {
+  background: var(--code-inline-bg);
+  color: var(--code-inline-fg);
+  border: 1px solid var(--code-inline-border);
+}
+
+.code-diff {
+  background: var(--code-surface);
+  color: var(--code-foreground);
+}
+
+.code-diff__line {
+  min-height: 1.25rem;
+  padding: 0 1rem;
+  white-space: pre;
+}
+
+.code-diff__line--file {
+  background: color-mix(in srgb, var(--code-blue) 14%, transparent);
+  color: var(--code-blue);
+  font-weight: 700;
+}
+
+.code-diff__line--hunk {
+  background: color-mix(in srgb, var(--code-purple) 18%, transparent);
+  color: var(--code-purple);
+  font-weight: 700;
+}
+
+.code-diff__line--added {
+  background: color-mix(in srgb, var(--code-green) 16%, transparent);
+  color: var(--code-green);
+}
+
+.code-diff__line--removed {
+  background: color-mix(in srgb, var(--code-red) 16%, transparent);
+  color: var(--code-red);
+}
+
+.code-block pre[class*="language-"],
+.code-block code[class*="language-"] {
+  background: transparent;
+  color: var(--code-foreground);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  text-align: left;
+  white-space: pre;
+  word-spacing: normal;
+  word-break: normal;
+  word-wrap: normal;
+  tab-size: 2;
+  hyphens: none;
+  text-shadow: none;
+}
+
+.code-block pre[class*="language-"] {
+  background: var(--code-surface);
+}
+
+.code-block .token {
+  background: transparent;
+  text-shadow: none;
+}
+
+.code-block .token.comment,
+.code-block .token.prolog,
+.code-block .token.doctype,
+.code-block .token.cdata {
+  color: var(--code-comment);
+  font-style: italic;
+}
+
+.code-block .token.punctuation {
+  color: var(--code-punctuation);
+}
+
+.code-block .token.property,
+.code-block .token.tag,
+.code-block .token.constant,
+.code-block .token.symbol,
+.code-block .token.deleted {
+  color: var(--code-red);
+}
+
+.code-block .token.boolean,
+.code-block .token.number {
+  color: var(--code-orange);
+}
+
+.code-block .token.selector,
+.code-block .token.attr-name,
+.code-block .token.string,
+.code-block .token.char,
+.code-block .token.builtin,
+.code-block .token.inserted {
+  color: var(--code-green);
+}
+
+.code-block .token.operator,
+.code-block .token.entity,
+.code-block .token.url,
+.code-block .language-css .token.string,
+.code-block .style .token.string {
+  color: var(--code-cyan);
+}
+
+.code-block .token.atrule,
+.code-block .token.attr-value,
+.code-block .token.keyword {
+  color: var(--code-purple);
+}
+
+.code-block .token.function,
+.code-block .token.class-name {
+  color: var(--code-blue);
+}
+
+.code-block .token.regex,
+.code-block .token.important,
+.code-block .token.variable {
+  color: var(--code-yellow);
+}
+
+.code-block .token.important,
+.code-block .token.bold {
+  font-weight: 700;
+}
+
+.code-block .token.italic {
+  font-style: italic;
+}

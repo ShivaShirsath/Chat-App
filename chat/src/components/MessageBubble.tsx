@@ -1,6 +1,18 @@
 import { useState } from "react";
-import { Zap, Link, Check, Copy, ClipboardCheck } from "lucide-react";
-import type { Message } from "../types/chat";
+import { 
+  Zap, 
+  Link, 
+  Check, 
+  Copy, 
+  ClipboardCheck, 
+  Loader2, 
+  Terminal as TerminalIcon, 
+  AlertCircle, 
+  FileCode, 
+  ChevronDown, 
+  ChevronRight 
+} from "lucide-react";
+import type { Message, FileDiffs } from "../types/chat";
 import MarkdownRenderer from "./MarkdownRenderer";
 import MediaRenderer from "./MediaRenderer";
 import { copyToClipboard } from "../utils/clipboard";
@@ -8,12 +20,20 @@ import { copyToClipboard } from "../utils/clipboard";
 interface MessageBubbleProps {
   msg: Message;
   sessionId: string | null;
+  handleSendPermissionChoice?: (msgId: string, choice: string) => void;
+  onOpenDiffs?: (filename: string, fileDiffs: FileDiffs) => void;
 }
 
-export default function MessageBubble({ msg, sessionId }: MessageBubbleProps) {
+export default function MessageBubble({ 
+  msg, 
+  sessionId, 
+  handleSendPermissionChoice, 
+  onOpenDiffs 
+}: MessageBubbleProps) {
   const isUser = msg.role === "user";
   const [blockCopied, setBlockCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [isThinkingExpanded, setIsThinkingExpanded] = useState(false);
 
   // Copy the raw text content of this single message block
   const handleCopyBlock = async () => {
@@ -44,8 +64,8 @@ export default function MessageBubble({ msg, sessionId }: MessageBubbleProps) {
     >
       {/* Avatar left for assistant */}
       {!isUser && (
-        <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center shrink-0 shadow-md mt-1">
-          <Zap className="h-4 w-4 text-white" />
+        <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-primary to-primary/70 flex items-center justify-center shrink-0 shadow-md mt-1">
+          <Zap className="h-4 w-4 text-primary-foreground" />
         </div>
       )}
 
@@ -56,13 +76,13 @@ export default function MessageBubble({ msg, sessionId }: MessageBubbleProps) {
           id={`msg-${msg.id}`}
           className={`rounded-2xl p-4 space-y-3 border transition-all ${
             isUser
-              ? "bg-[#181922] border-[#292c3a] text-gray-100"
-              : "bg-[#0c0d14]/70 border-[#191a24] text-gray-100 backdrop-blur-md"
+              ? "bg-card border-border text-foreground"
+              : "bg-card/70 border-border text-foreground backdrop-blur-md"
           }`}
         >
           {/* Multimodal user image preview */}
           {isUser && msg.mediaUrl && (
-            <div className="relative rounded-lg overflow-hidden border border-[#2b2d3c] max-w-xs shadow-md">
+            <div className="relative rounded-lg overflow-hidden border border-border max-w-xs shadow-md">
               <img
                 src={msg.mediaUrl}
                 alt="User attachment"
@@ -74,17 +94,126 @@ export default function MessageBubble({ msg, sessionId }: MessageBubbleProps) {
           {/* Text Content */}
           {msg.content ? (
             <MarkdownRenderer content={msg.content} isUser={isUser} />
-          ) : msg.isStreaming ? (
+          ) : msg.isStreaming && !msg.thoughts ? (
             <div className="flex items-center gap-2 py-1.5">
               <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
               </span>
-              <span className="text-xs text-gray-500 font-medium animate-pulse">
+              <span className="text-xs text-muted-foreground font-medium animate-pulse">
                 Generating payload...
               </span>
             </div>
           ) : null}
+
+          {/* Coder Agent Specific Components */}
+          {!isUser && (
+            <div className="space-y-3 pt-1">
+              
+              {/* A. Collapsible Faded Thinking Block */}
+              {msg.thoughts && msg.thoughts.length > 0 && (
+                <div className="border border-border rounded-xl overflow-hidden bg-muted/30">
+                  <button
+                    onClick={() => setIsThinkingExpanded(!isThinkingExpanded)}
+                    className="w-full flex items-center justify-between px-3 py-2 text-[10px] font-semibold text-muted-foreground hover:text-muted-foreground transition-all cursor-pointer"
+                  >
+                    <span className="flex items-center gap-1.5 font-mono">
+                      <Loader2 className={`h-3 w-3 text-primary ${msg.isStreaming ? "animate-spin" : ""}`} />
+                      {msg.isStreaming 
+                        ? "Thinking..." 
+                        : `Worked for ${msg.thinkingTime || 0}s`
+                      }
+                    </span>
+                    {isThinkingExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  </button>
+
+                  {isThinkingExpanded && (
+                    <div className="border-t border-border p-3 bg-muted/50 space-y-1.5 max-h-[250px] overflow-y-auto">
+                      {msg.thoughts.map((thought, tidx) => (
+                        <div key={tidx} className="text-[11px] text-muted-foreground leading-normal border-l border-border pl-2 py-0.5">
+                          {thought}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* B. Terminal Command Logs (always visible) */}
+              {msg.terminalLogs && (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1 text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
+                    <TerminalIcon className="h-3 w-3" />
+                    Shell Command Logs
+                  </div>
+                  <div className="p-2.5 rounded bg-background/60 font-mono text-[10px] text-primary border border-border overflow-x-auto max-h-[180px] whitespace-pre-wrap">
+                    {msg.terminalLogs}
+                  </div>
+                </div>
+              )}
+
+              {/* C. Dynamic Permission Request Card */}
+              {msg.permissionRequest && handleSendPermissionChoice && (
+                <div className="p-3.5 bg-primary/10 border border-primary/30 rounded-xl space-y-3 shadow shadow-primary/5">
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-primary uppercase tracking-wider">Clarification Required</p>
+                      <p className="text-xs text-foreground">{msg.permissionRequest.question}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2 pt-1 pl-6.5">
+                    {msg.permissionRequest.options.map((opt) => {
+                      const isSelected = msg.permissionRequest?.answeredChoice === opt;
+                      const hasAnswered = !!msg.permissionRequest?.answeredChoice;
+                      return (
+                        <button
+                          key={opt}
+                          disabled={hasAnswered}
+                          onClick={() => handleSendPermissionChoice(msg.id, opt)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                            isSelected
+                              ? "bg-primary border-primary text-primary-foreground shadow-sm"
+                              : hasAnswered
+                              ? "bg-transparent border-border text-muted-foreground cursor-not-allowed"
+                              : "bg-card border-border text-foreground hover:text-primary-foreground hover:border-primary/60 hover:bg-accent cursor-pointer"
+                          }`}
+                        >
+                          {opt}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* D. Files Changed Summary Card */}
+              {msg.diffs && Object.keys(msg.diffs).length > 0 && onOpenDiffs && (
+                <div className="flex items-center justify-between bg-muted/50 border border-border rounded-xl p-3.5 shadow-md">
+                  <div className="flex items-center gap-2.5">
+                    <FileCode className="h-4 w-4 text-primary" />
+                    <div>
+                      <p className="text-xs text-foreground font-semibold">
+                        {Object.keys(msg.diffs).length} file{Object.keys(msg.diffs).length > 1 ? "s" : ""} modified
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">Unified code diffs generated</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const firstFile = Object.keys(msg.diffs || {})[0];
+                      onOpenDiffs(firstFile, msg.diffs || {});
+                    }}
+                    className="px-3.5 py-1.5 rounded-lg bg-primary/15 border border-primary/30 text-primary text-[10px] font-bold hover:bg-primary/25 transition-all cursor-pointer uppercase tracking-wider"
+                  >
+                    Review
+                  </button>
+                </div>
+              )}
+
+            </div>
+          )}
 
           {/* Media Output Renderer (Images/Videos from Assistant) */}
           {msg.mediaUrl && !isUser && msg.mediaType && (
@@ -105,12 +234,12 @@ export default function MessageBubble({ msg, sessionId }: MessageBubbleProps) {
             <button
               onClick={handleCopyBlock}
               title="Copy this message"
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0e0f18] hover:bg-[#161724] border border-[#1e2030] text-[10px] font-semibold text-gray-400 hover:text-white transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-card hover:bg-accent border border-border text-[10px] font-semibold text-muted-foreground hover:text-primary-foreground transition-all cursor-pointer"
             >
               {blockCopied ? (
                 <>
-                  <ClipboardCheck className="h-3 w-3 text-emerald-400" />
-                  <span className="text-emerald-400">Copied!</span>
+                  <ClipboardCheck className="h-3 w-3 text-primary" />
+                  <span className="text-primary">Copied!</span>
                 </>
               ) : (
                 <>
@@ -125,12 +254,12 @@ export default function MessageBubble({ msg, sessionId }: MessageBubbleProps) {
               <button
                 onClick={handleCopyLink}
                 title="Copy a link to this specific message"
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0e0f18] hover:bg-[#161724] border border-[#1e2030] text-[10px] font-semibold text-gray-400 hover:text-indigo-300 transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-card hover:bg-accent border border-border text-[10px] font-semibold text-muted-foreground hover:text-primary transition-all cursor-pointer"
               >
                 {linkCopied ? (
                   <>
-                    <Check className="h-3 w-3 text-emerald-400" />
-                    <span className="text-emerald-400">Link Copied!</span>
+                    <Check className="h-3 w-3 text-primary" />
+                    <span className="text-primary">Link Copied!</span>
                   </>
                 ) : (
                   <>
@@ -146,7 +275,7 @@ export default function MessageBubble({ msg, sessionId }: MessageBubbleProps) {
 
       {/* Avatar right for user */}
       {isUser && (
-        <div className="h-8 w-8 rounded-lg bg-[#242635] flex items-center justify-center shrink-0 border border-[#303347] font-semibold text-xs text-indigo-300 mt-1">
+        <div className="h-8 w-8 rounded-lg bg-secondary flex items-center justify-center shrink-0 border border-border font-semibold text-xs text-primary mt-1">
           U
         </div>
       )}

@@ -199,7 +199,7 @@ class AgentService:
         env_discovered = self._discover_environment(folder_path)
 
         system_prompt = f"""You are an expert software engineering agent executing tasks in a local workspace directory.
-You must be thorough, proactive, and safe.
+You must be precise, safe, and scoped to the user's request.
 
 YOUR ENVIRONMENT & OS CONTEXT:
 {env_discovered}
@@ -243,10 +243,12 @@ TOOLS AVAILABLE:
 
 RULES OF THUMB FOR HIGH PERFORMANCE AND CORRECTNESS:
 - Strict Task Limitation: Do ONLY what is requested in the user's instruction. If the user instruction is 'list the files', your only goal is to list the files and folders and display them, then call `finish` immediately. Do NOT read package.json, edit code, or run startup servers unless the user instruction specifically asked you to do so. Doing extra steps is a severe safety violation.
+- Precision Before Action: Prefer the smallest safe tool call that advances the requested task. For edits, read the relevant file first and modify only the necessary files.
+- Safe Commands: Do not run destructive commands, install dependencies, start long-running servers, change git history, or access unrelated folders unless the user explicitly requests it or grants permission.
 - Run Shell Commands for Listing: If the user explicitly asks to list files, list directories, or run commands, you should use the `run_command` tool to execute the native OS command (`ls` or `ls -la` for macOS/Darwin/Linux, `dir` for Windows). This shows the raw command execution processes in the user's terminal logs.
 - Explore First: Check the file tree and flat list carefully. Read the relevant source files using `read_file` before making any modifications. Never overwrite files without knowing their current contents.
 - Strict Permissions: If you are unsure of the user's intent, run into conflicting implementation ideas, or are about to run a destructive/installation command, you MUST use the `request_permission` tool. Do not guess.
-- Single JSON Response: You must respond with EXACTLY a JSON block containing your thoughts and the action you want to take. Do not write text before or after the JSON block.
+- Single JSON Response: You must respond with EXACTLY one valid JSON object containing your thoughts and the action you want to take. Do not wrap it in markdown fences. Do not write text before or after the JSON object.
 
 JSON RESPONSE FORMAT EXAMPLE:
 {{
@@ -287,6 +289,7 @@ JSON RESPONSE FORMAT EXAMPLE:
                 "model": model_name,
                 "messages": history,
                 "stream": False,
+                "format": "json",
                 "options": {
                     "temperature": 0.1  # Low temperature for highly structured tool calls
                 }
@@ -526,6 +529,82 @@ JSON RESPONSE FORMAT EXAMPLE:
             pass
         return file_list[:100]  # Cap context at first 100 files
 
+    def _normalize_parsed(self, parsed: dict) -> dict:
+        """
+        Normalizes the parsed JSON dictionary to be extremely robust.
+        - Supports root-level 'tool' and 'parameters'.
+        - Maps alternate parameter names.
+        """
+        normalized = {
+            "thought": parsed.get("thought", "Analyzing workspace..."),
+            "action": {}
+        }
+        
+        # Extract action block or fall back to root-level keys. Some smaller
+        # models put tool parameters directly beside the tool name, so keep a
+        # root-level parameter fallback as well.
+        action = parsed.get("action")
+        if isinstance(action, dict):
+            tool = action.get("tool")
+            params = action.get("parameters")
+        else:
+            tool = parsed.get("tool")
+            params = parsed.get("parameters")
+
+        direct_params = {
+            key: parsed.get(key)
+            for key in (
+                "command", "cmd", "path", "file", "filename", "content",
+                "text", "dir", "folder", "question", "prompt", "options",
+                "summary", "result", "response"
+            )
+            if parsed.get(key) is not None
+        }
+            
+        if not tool:
+            return normalized
+            
+        if not isinstance(params, dict):
+            params = {}
+        params = {**direct_params, **params}
+            
+        # Normalize tool names
+        tool = tool.strip().lower()
+        
+        # Normalize parameter keys based on the tool
+        normalized_params = {}
+        if tool == "run_command":
+            cmd = params.get("command") or params.get("cmd") or ""
+            normalized_params["command"] = cmd
+        elif tool == "write_file":
+            path = params.get("path") or params.get("file") or params.get("filename") or ""
+            content = params.get("content") or params.get("text") or ""
+            normalized_params["path"] = path
+            normalized_params["content"] = content
+        elif tool == "read_file":
+            path = params.get("path") or params.get("file") or params.get("filename") or ""
+            normalized_params["path"] = path
+        elif tool == "list_dir":
+            path = params.get("path") or params.get("dir") or params.get("folder") or ""
+            normalized_params["path"] = path
+        elif tool == "request_permission":
+            question = params.get("question") or params.get("prompt") or "Do I have permission to proceed?"
+            options = params.get("options") or ["Yes", "No"]
+            normalized_params["question"] = question
+            normalized_params["options"] = options
+        elif tool == "finish":
+            summary = params.get("summary") or params.get("result") or params.get("response") or "Task completed."
+            normalized_params["summary"] = summary
+        else:
+            # Keep original params for custom tools
+            normalized_params = params
+            
+        normalized["action"] = {
+            "tool": tool,
+            "parameters": normalized_params
+        }
+        return normalized
+
     def _parse_json(self, text: str) -> dict:
         stripped = text.strip()
         
@@ -544,7 +623,8 @@ JSON RESPONSE FORMAT EXAMPLE:
             stripped = stripped[start:end+1]
             
         try:
-            return json.loads(stripped)
+            parsed = json.loads(stripped)
+            return self._normalize_parsed(parsed)
         except Exception:
             # Fallback regex parser for small models
             import re
@@ -554,55 +634,30 @@ JSON RESPONSE FORMAT EXAMPLE:
             thought = thought_match.group(1) if thought_match else "Analyzing..."
             tool = tool_match.group(1) if tool_match else None
             
+            parsed_fallback = {
+                "thought": thought,
+                "tool": tool,
+                "parameters": {}
+            }
+            
             if tool == "finish":
-                return {"thought": thought, "action": {"tool": "finish", "parameters": {}}}
-            
-            if tool == "request_permission":
+                summary_match = re.search(r'"summary"\s*:\s*"([^"]+)"', stripped)
+                parsed_fallback["parameters"]["summary"] = summary_match.group(1) if summary_match else "Task completed."
+            elif tool == "request_permission":
                 q_match = re.search(r'"question"\s*:\s*"([^"]+)"', stripped)
-                return {
-                    "thought": thought,
-                    "action": {
-                        "tool": "request_permission",
-                        "parameters": {
-                            "question": q_match.group(1) if q_match else "Do I have permission to proceed?",
-                            "options": ["Yes", "No"]
-                        }
-                    }
-                }
-            
-            # Look for write_file path and content match
-            if tool == "write_file":
+                parsed_fallback["parameters"]["question"] = q_match.group(1) if q_match else "Do I have permission to proceed?"
+            elif tool == "write_file":
                 path_match = re.search(r'"path"\s*:\s*"([^"]+)"', stripped)
                 content_match = re.search(r'"content"\s*:\s*"([\s\S]+?)"\s*\}\s*\}', stripped)
                 if path_match and content_match:
-                    return {
-                        "thought": thought,
-                        "action": {
-                            "tool": "write_file",
-                            "parameters": {
-                                "path": path_match.group(1),
-                                "content": content_match.group(1).encode().decode('unicode-escape')
-                            }
-                        }
-                    }
-                    
-            if tool == "run_command":
+                    parsed_fallback["parameters"]["path"] = path_match.group(1)
+                    try:
+                        parsed_fallback["parameters"]["content"] = content_match.group(1).encode().decode('unicode-escape')
+                    except Exception:
+                        parsed_fallback["parameters"]["content"] = content_match.group(1)
+            elif tool == "run_command":
                 cmd_match = re.search(r'"command"\s*:\s*"([^"]+)"', stripped)
                 if cmd_match:
-                    return {
-                        "thought": thought,
-                        "action": {
-                            "tool": "run_command",
-                            "parameters": {
-                                "command": cmd_match.group(1)
-                            }
-                        }
-                    }
-
-            return {
-                "thought": text,
-                "action": {
-                    "tool": "finish",
-                    "parameters": {"summary": "Done (unstructured response)"}
-                }
-            }
+                    parsed_fallback["parameters"]["command"] = cmd_match.group(1)
+            
+            return self._normalize_parsed(parsed_fallback)

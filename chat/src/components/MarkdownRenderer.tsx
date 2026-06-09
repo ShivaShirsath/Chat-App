@@ -24,7 +24,7 @@ export default function MarkdownRenderer({ content, isUser = false }: MarkdownRe
     console.error("Failed to tokenize markdown:", e);
     // Fallback: render plain text preserving line breaks
     return (
-      <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">
+      <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
         {content}
       </div>
     );
@@ -38,19 +38,19 @@ function renderInline(tokens?: any[], isUser?: boolean): React.ReactNode {
     switch (token.type) {
       case "strong":
         return (
-          <strong key={idx} className={isUser ? "text-white font-bold" : "text-indigo-300 font-bold"}>
+          <strong key={idx} className={isUser ? "text-primary-foreground font-bold" : "text-primary font-bold"}>
             {renderInline(token.tokens, isUser)}
           </strong>
         );
       case "em":
         return (
-          <em key={idx} className="italic text-gray-300">
+          <em key={idx} className="italic text-foreground">
             {renderInline(token.tokens, isUser)}
           </em>
         );
       case "codespan":
         return (
-          <code key={idx} className="bg-[#181920] text-purple-300 px-1.5 py-0.5 rounded text-xs font-mono">
+          <code key={idx} className="code-inline px-1.5 py-0.5 rounded text-xs font-mono">
             {token.text}
           </code>
         );
@@ -63,7 +63,7 @@ function renderInline(tokens?: any[], isUser?: boolean): React.ReactNode {
             href={token.href}
             target="_blank"
             rel="noreferrer"
-            className="text-violet-400 hover:text-violet-300 hover:underline"
+            className="text-primary hover:text-primary hover:underline"
           >
             {renderInline(token.tokens, isUser)}
           </a>
@@ -99,18 +99,18 @@ function renderTextWithBreaks(text: string, key: number): React.ReactNode {
 
 /** Render a top-level block token */
 function renderToken(token: any, idx: number, isUser: boolean): React.ReactNode {
-  const textColor = isUser ? "text-gray-100" : "text-gray-300";
+  const textColor = isUser ? "text-foreground" : "text-foreground";
 
   switch (token.type) {
     case "heading": {
       const Tag = `h${token.depth}` as any;
       const classMap: Record<number, string> = {
-        1: "text-xl font-extrabold text-white mt-4 mb-2 border-b border-[#1c1d29] pb-2",
-        2: "text-lg font-bold text-indigo-300 mt-4 mb-2",
-        3: "text-base font-semibold text-purple-300 mt-3 mb-1.5",
-        4: "text-sm font-semibold text-purple-300 mt-2.5 mb-1",
-        5: "text-xs font-semibold text-purple-400 mt-2 mb-1",
-        6: "text-xs font-semibold text-purple-400 mt-1.5 mb-1",
+        1: "text-xl font-extrabold text-primary-foreground mt-4 mb-2 border-b border-border pb-2",
+        2: "text-lg font-bold text-primary mt-4 mb-2",
+        3: "text-base font-semibold text-primary mt-3 mb-1.5",
+        4: "text-sm font-semibold text-primary mt-2.5 mb-1",
+        5: "text-xs font-semibold text-primary mt-2 mb-1",
+        6: "text-xs font-semibold text-primary mt-1.5 mb-1",
       };
       return (
         <Tag key={idx} className={classMap[token.depth] || classMap[6]}>
@@ -136,7 +136,7 @@ function renderToken(token: any, idx: number, isUser: boolean): React.ReactNode 
       return (
         <blockquote
           key={idx}
-          className="border-l-4 border-violet-500 bg-[#12131b] p-3 rounded-r-lg text-xs text-gray-400 my-3 leading-relaxed italic"
+          className="border-l-4 border-primary bg-muted p-3 rounded-r-lg text-xs text-muted-foreground my-3 leading-relaxed italic"
         >
           {token.tokens.map((subToken: any, subIdx: number) =>
             renderToken(subToken, subIdx, isUser)
@@ -162,25 +162,25 @@ function renderToken(token: any, idx: number, isUser: boolean): React.ReactNode 
 
     case "table":
       return (
-        <div key={idx} className="overflow-x-auto my-4 rounded-xl border border-[#1a1c23]">
-          <table className="min-w-full divide-y divide-[#1c1d29] bg-transparent">
-            <thead className="bg-[#12131b]">
+        <div key={idx} className="overflow-x-auto my-4 rounded-xl border border-border">
+          <table className="min-w-full divide-y divide-border bg-transparent">
+            <thead className="bg-muted">
               <tr>
                 {token.header.map((cell: any, cellIdx: number) => (
                   <th
                     key={cellIdx}
-                    className="px-4 py-2 text-left text-xs font-semibold text-indigo-300 uppercase tracking-wider"
+                    className="px-4 py-2 text-left text-xs font-semibold text-primary uppercase tracking-wider"
                   >
                     {renderInline(cell.tokens, isUser)}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#16171f]">
+            <tbody className="divide-y divide-border">
               {token.rows.map((row: any[], rowIdx: number) => (
                 <tr key={rowIdx} className="hover:bg-white/5 transition-all">
                   {row.map((cell: any, cellIdx: number) => (
-                    <td key={cellIdx} className="px-4 py-2.5 text-xs text-gray-300">
+                    <td key={cellIdx} className="px-4 py-2.5 text-xs text-foreground">
                       {renderInline(cell.tokens, isUser)}
                     </td>
                   ))}
@@ -192,7 +192,7 @@ function renderToken(token: any, idx: number, isUser: boolean): React.ReactNode 
       );
 
     case "hr":
-      return <hr key={idx} className="border-[#1e202b] my-4" />;
+      return <hr key={idx} className="border-border my-4" />;
 
     case "space":
       return null;

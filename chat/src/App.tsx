@@ -1,23 +1,17 @@
 import { useState, useEffect, useRef } from "react";
-import { Terminal, HelpCircle, Copy, Share2, Check } from "lucide-react";
+import { Terminal, HelpCircle, Copy, Share2, Check, FileCode, X } from "lucide-react";
 import { copyToClipboard } from "./utils/clipboard";
 import { useChat } from "./hooks/useChat";
 import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
 import ChatInput from "./components/ChatInput";
 import ReadmeViewer from "./components/ReadmeViewer";
-import AgentWorkspace from "./components/AgentWorkspace";
-import type { ActiveTab, ModelEndpoint } from "./types/chat";
+import type { ActiveTab, ModelEndpoint, FileDiffs, CodeTheme } from "./types/chat";
+import { getStoredCodeTheme } from "./utils/codeThemes";
+import { useThemeStore } from "./store/themeStore";
 import "./App.css";
 
-// @ts-ignore
-import tomorrowTheme from "prismjs/themes/prism-tomorrow.css?inline";
-// @ts-ignore
-import okaidiaTheme from "prismjs/themes/prism-okaidia.css?inline";
-// @ts-ignore
-import twilightTheme from "prismjs/themes/prism-twilight.css?inline";
-// @ts-ignore
-import defaultTheme from "prismjs/themes/prism.css?inline";
+import { API_BASE_URL, WS_BASE_URL } from "./utils/api";
 
 export default function App() {
   const {
@@ -37,12 +31,78 @@ export default function App() {
     sessions,
     loadSession,
     deleteSession,
-    createNewChat
+    createNewChat,
+
+    // Coder Agent integrations
+    chatMode,
+    setChatMode,
+    folderPath,
+    isValidated,
+    validationError,
+    files,
+    isValidating,
+    handleSelectFolder,
+    handleSendPermissionChoice,
+    handleStopAgent
   } = useChat();
+
+  const themeId = useThemeStore((state) => state.themeId);
+  const darkMode = useThemeStore((state) => state.darkMode);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("chat");
   const [input, setInput] = useState("");
-  const [codeTheme, setCodeTheme] = useState<string>(() => localStorage.getItem("code-theme") || "tomorrow");
+  const [codeTheme, setCodeTheme] = useState<CodeTheme>(getStoredCodeTheme);
+
+  // Sync centralized theme stylesheet and dark mode class to document root
+  useEffect(() => {
+    let link = document.getElementById("theme-link") as HTMLLinkElement | null;
+    if (!link) {
+      link = document.createElement("link");
+      link.id = "theme-link";
+      link.rel = "stylesheet";
+      document.head.appendChild(link);
+    }
+    link.href = `${import.meta.env.BASE_URL}themes/theme-${themeId}.css`;
+
+    const root = document.documentElement;
+    if (darkMode) {
+      root.classList.add("dark");
+    } else {
+      root.classList.remove("dark");
+    }
+  }, [themeId, darkMode]);
+
+  // Overlay Diffs Drawer state
+  const [drawerOpenFile, setDrawerOpenFile] = useState<string | null>(null);
+  const [drawerDiffs, setDrawerDiffs] = useState<FileDiffs>({});
+  const [selectedDiffFile, setSelectedDiffFile] = useState<string | null>(null);
+
+  const openDiffReview = (filename: string, fileDiffs: FileDiffs) => {
+    setDrawerDiffs(fileDiffs);
+    setSelectedDiffFile(filename);
+    setDrawerOpenFile(filename);
+  };
+
+  const renderDiffLine = (line: string, index: number) => {
+    let bgColor: string;
+    if (line.startsWith("+") && !line.startsWith("+++")) {
+      bgColor = "bg-primary/10 text-primary border-l-2 border-primary/70 px-2";
+    } else if (line.startsWith("-") && !line.startsWith("---")) {
+      bgColor = "bg-destructive/10 text-destructive border-l-2 border-destructive/70 px-2";
+    } else if (line.startsWith("@@")) {
+      bgColor = "text-primary bg-primary/10 font-bold px-2";
+    } else if (line.startsWith("diff ") || line.startsWith("index ") || line.startsWith("---") || line.startsWith("+++")) {
+      bgColor = "text-muted-foreground font-semibold px-2";
+    } else {
+      bgColor = "text-foreground px-2";
+    }
+
+    return (
+      <div key={index} className={`font-mono text-[11px] py-0.5 whitespace-pre-wrap select-text ${bgColor}`}>
+        {line}
+      </div>
+    );
+  };
 
   const [chatCopied, setChatCopied] = useState(false);
   const [sessionCopied, setSessionCopied] = useState(false);
@@ -50,33 +110,10 @@ export default function App() {
   // Holds the message ID to scroll-to after a deep-linked session finishes loading
   const pendingMsgIdRef = useRef<string | null>(null);
 
-  // Dynamic CSS stylesheet injector
+  // Sync code theme selection to CSS variables
   useEffect(() => {
-    let themeCss = "";
-    switch (codeTheme) {
-      case "tomorrow":
-        themeCss = tomorrowTheme;
-        break;
-      case "okaidia":
-        themeCss = okaidiaTheme;
-        break;
-      case "twilight":
-        themeCss = twilightTheme;
-        break;
-      case "default":
-        themeCss = defaultTheme;
-        break;
-      default:
-        themeCss = tomorrowTheme;
-    }
-
-    let styleEl = document.getElementById("prism-theme");
-    if (!styleEl) {
-      styleEl = document.createElement("style");
-      styleEl.id = "prism-theme";
-      document.head.appendChild(styleEl);
-    }
-    styleEl.innerHTML = themeCss;
+    document.getElementById("prism-theme")?.remove();
+    document.documentElement.dataset.codeTheme = codeTheme;
     localStorage.setItem("code-theme", codeTheme);
   }, [codeTheme]);
 
@@ -137,9 +174,9 @@ export default function App() {
 
   const getApiUrlInfo = () => {
     if (connectionType === "websocket") {
-      return `ws://localhost:8001/api/v1/ws (Type: ${endpoint})`;
+      return `${WS_BASE_URL}/api/v1/ws (Type: ${endpoint})`;
     } else {
-      return `http://localhost:8001/api/v1/${endpoint}/chat`;
+      return `${API_BASE_URL}/api/v1/${endpoint}/chat`;
     }
   };
 
@@ -166,7 +203,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-[#07080c] text-gray-100 overflow-hidden font-sans">
+    <div className="flex h-screen w-screen bg-background text-foreground overflow-hidden font-sans">
       
       {/* SIDEBAR PANEL */}
       <Sidebar
@@ -192,14 +229,14 @@ export default function App() {
       />
 
       {/* MAIN CONTAINER */}
-      <div className="flex-1 flex flex-col bg-[#07080b] relative">
+      <div className="flex-1 flex flex-col bg-background relative">
         
         {/* HEADER */}
-        <div className="h-16 border-b border-[#1a1c23] px-6 flex items-center justify-between bg-[#0b0c11]/80 backdrop-blur-md z-10">
-          <div className="flex items-center gap-2 text-xs font-mono text-gray-400">
-            <Terminal className="h-4 w-4 text-violet-400" />
-            <span className="text-gray-500">ENDPOINT:</span>
-            <span className="text-indigo-300 font-semibold bg-[#12131a] px-2.5 py-1 rounded-md border border-[#1c1d29] max-w-[200px] sm:max-w-[400px] truncate">
+        <div className="h-16 border-b border-border px-6 flex items-center justify-between bg-background/80 backdrop-blur-md z-10">
+          <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
+            <Terminal className="h-4 w-4 text-primary" />
+            <span className="text-muted-foreground">ENDPOINT:</span>
+            <span className="text-primary font-semibold bg-card px-2.5 py-1 rounded-md border border-border max-w-[200px] sm:max-w-[400px] truncate">
               {getApiUrlInfo()}
             </span>
           </div>
@@ -209,12 +246,12 @@ export default function App() {
               <>
                 <button
                   onClick={handleCopyChat}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141520] hover:bg-[#1e202f] border border-[#2b2d3c] text-[10px] font-bold text-gray-300 hover:text-white transition-all uppercase cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary hover:bg-accent border border-border text-[10px] font-bold text-secondary-foreground hover:text-accent-foreground transition-all uppercase cursor-pointer"
                   title="Copy whole chat conversation"
                 >
                   {chatCopied ? (
                     <>
-                      <Check className="h-3.5 w-3.5 text-emerald-400" />
+                      <Check className="h-3.5 w-3.5 text-primary" />
                       Copied!
                     </>
                   ) : (
@@ -228,12 +265,12 @@ export default function App() {
                 {sessionId && (
                   <button
                     onClick={handleShareChat}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141520] hover:bg-[#1e202f] border border-[#2b2d3c] text-[10px] font-bold text-indigo-300 hover:text-white transition-all uppercase cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary hover:bg-accent border border-border text-[10px] font-bold text-primary hover:text-accent-foreground transition-all uppercase cursor-pointer"
                     title="Share chat link"
                   >
                     {sessionCopied ? (
                       <>
-                        <Check className="h-3.5 w-3.5 text-emerald-400" />
+                        <Check className="h-3.5 w-3.5 text-primary" />
                         Link Copied!
                       </>
                     ) : (
@@ -247,7 +284,7 @@ export default function App() {
               </>
             )}
 
-            <span className="text-xs text-gray-500 flex items-center gap-1 ml-2">
+            <span className="text-xs text-muted-foreground flex items-center gap-1 ml-2">
               <HelpCircle className="h-3.5 w-3.5" />
               Swap Endpoints in Sidebar
             </span>
@@ -257,12 +294,16 @@ export default function App() {
         {/* WORKSPACE AREA */}
         {activeTab === "readme" ? (
           <ReadmeViewer onBackToChat={() => setActiveTab("chat")} />
-        ) : activeTab === "agent" ? (
-          <AgentWorkspace modelName={modelName} setModelName={setModelName} models={models} />
         ) : (
           <>
             {/* MESSAGE CONTAINER */}
-            <ChatWindow messages={messages} applyTemplate={applyTemplate} sessionId={sessionId} />
+            <ChatWindow 
+              messages={messages} 
+              applyTemplate={applyTemplate} 
+              sessionId={sessionId} 
+              handleSendPermissionChoice={handleSendPermissionChoice}
+              onOpenDiffs={openDiffReview}
+            />
 
             {/* INPUT PANEL */}
             <ChatInput
@@ -274,10 +315,91 @@ export default function App() {
               modelName={modelName}
               setModelName={setModelName}
               models={models}
+
+              // Agent Mode integrations
+              chatMode={chatMode}
+              setChatMode={setChatMode}
+              folderPath={folderPath}
+              isValidated={isValidated}
+              validationError={validationError}
+              filesCount={files.length}
+              isValidating={isValidating}
+              handleSelectFolder={handleSelectFolder}
+              handleStopAgent={handleStopAgent}
             />
           </>
         )}
       </div>
+
+      {/* OVERLAY SIDE-DRAWER CODE DIFF REVIEW */}
+      {drawerOpenFile && (
+        <div className="absolute inset-0 z-50 flex overflow-hidden select-text">
+          {/* Backdrop */}
+          <div 
+            onClick={() => setDrawerOpenFile(null)}
+            className="absolute inset-0 bg-background/75 backdrop-blur-sm transition-opacity" 
+          />
+
+          {/* Drawer Panel */}
+          <div className="absolute right-0 top-0 bottom-0 w-full max-w-3xl bg-card border-l border-border flex flex-col shadow-2xl animate-slide-in">
+            {/* Header */}
+            <div className="h-14 border-b border-border px-6 flex items-center justify-between bg-card shrink-0">
+              <div className="flex items-center gap-3">
+                <FileCode className="h-4.5 w-4.5 text-primary" />
+                <span className="text-xs font-bold text-card-foreground">Review Code Modifications</span>
+              </div>
+              <button 
+                onClick={() => setDrawerOpenFile(null)}
+                className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-accent-foreground transition-all cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Active selectors toolbar */}
+            <div className="h-11 border-b border-border px-6 flex items-center justify-between bg-muted shrink-0 text-xs text-muted-foreground">
+              <span>File changed list:</span>
+              <select
+                value={selectedDiffFile || ""}
+                onChange={(e) => setSelectedDiffFile(e.target.value)}
+                className="py-1 px-2.5 rounded-md text-[10px] bg-card border border-border text-primary cursor-pointer focus:outline-none max-w-[250px] truncate"
+              >
+                {Object.keys(drawerDiffs).map((f) => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Diff content view */}
+            <div className="flex-1 overflow-auto p-6 bg-background/60">
+              {selectedDiffFile && drawerDiffs[selectedDiffFile] ? (
+                <div className="rounded-xl border border-border overflow-hidden bg-card">
+                  <div className="bg-muted border-b border-border px-4 py-2 text-[10px] font-mono text-muted-foreground">
+                    {selectedDiffFile}
+                  </div>
+                  <div className="py-3 overflow-x-auto">
+                    {drawerDiffs[selectedDiffFile].split("\n").map((line, idx) => renderDiffLine(line, idx))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground italic text-center py-24 select-none">
+                  No diff records loaded for this file.
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Accept panel */}
+            <div className="h-16 border-t border-border px-6 flex items-center justify-end bg-card shrink-0">
+              <button
+                onClick={() => setDrawerOpenFile(null)}
+                className="px-5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs transition-all cursor-pointer shadow-md uppercase tracking-wider"
+              >
+                Done Review
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

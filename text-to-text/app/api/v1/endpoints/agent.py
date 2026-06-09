@@ -5,6 +5,9 @@ import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, status
 from pydantic import BaseModel
 from app.services.agent_service import AgentService
+from app.db.session import SessionLocal
+from app.db.models import ChatSession, ChatMessage
+from datetime import datetime
 
 router = APIRouter()
 agent_service = AgentService()
@@ -84,6 +87,8 @@ async def run_agent_ws(websocket: WebSocket):
     await websocket.accept()
     
     agent_service = AgentService()
+    db = SessionLocal()
+    session_id = None
     
     try:
         # 1. Wait for initial config message
@@ -93,6 +98,7 @@ async def run_agent_ws(websocket: WebSocket):
         folder_path = config.get("folder_path")
         instruction = config.get("instruction")
         model_name = config.get("model_name", "llama3.2:latest")
+        session_id = config.get("session_id")
         
         if not folder_path or not instruction:
             await websocket.send_text(json.dumps({
@@ -102,9 +108,61 @@ async def run_agent_ws(websocket: WebSocket):
             await websocket.close()
             return
 
+        # Resolve or create ChatSession
+        if not session_id:
+            title = instruction[:30] + "..." if len(instruction) > 30 else instruction
+            session = ChatSession(title=f"[Agent] {title}")
+            db.add(session)
+            db.commit()
+            db.refresh(session)
+            session_id = session.id
+            
+            # Notify client of the newly created session
+            await websocket.send_text(json.dumps({
+                "type": "session_created",
+                "session_id": session_id,
+                "title": session.title
+            }))
+        else:
+            session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
+            if not session:
+                session = ChatSession(id=session_id, title=f"[Agent] Run")
+                db.add(session)
+                db.commit()
+                db.refresh(session)
+
+        # Save User Message to DB
+        db_user_msg = ChatMessage(
+            session_id=session_id,
+            role="user",
+            content=instruction
+        )
+        db.add(db_user_msg)
+        db.commit()
+
         # 2. Callback function to send events back over WebSocket
         async def event_callback(event: dict):
             try:
+                # If done, save the final agent summary content to DB
+                if event.get("type") == "done":
+                    db_assistant_msg = ChatMessage(
+                        session_id=session_id,
+                        role="assistant",
+                        content=event.get("summary", "Task completed.")
+                    )
+                    db.add(db_assistant_msg)
+                    session.updated_at = datetime.utcnow()
+                    db.commit()
+                elif event.get("type") == "error":
+                    db_assistant_msg = ChatMessage(
+                        session_id=session_id,
+                        role="assistant",
+                        content=f"Error: {event.get('message', 'Unknown error occurred.')}"
+                    )
+                    db.add(db_assistant_msg)
+                    session.updated_at = datetime.utcnow()
+                    db.commit()
+                    
                 await websocket.send_text(json.dumps(event))
             except Exception:
                 # Socket might have closed
@@ -151,6 +209,7 @@ async def run_agent_ws(websocket: WebSocket):
         except Exception:
             pass
     finally:
+        db.close()
         try:
             await websocket.close()
         except Exception:

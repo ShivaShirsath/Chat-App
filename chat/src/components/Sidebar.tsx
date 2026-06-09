@@ -12,9 +12,11 @@ import {
   Plus,
   Copy,
   Check,
-  Cpu
+  Sun,
+  Moon
 } from "lucide-react";
-import type { ModelEndpoint, ConnectionType, ActiveTab, ChatSession, Message, OllamaModel } from "../types/chat";
+import type { ModelEndpoint, ConnectionType, ActiveTab, ChatSession, Message, OllamaModel, CodeTheme } from "../types/chat";
+import { THEMES, useThemeStore, type ThemeId } from "../store/themeStore";
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -37,11 +39,12 @@ interface SidebarProps {
   createNewChat: () => void;
   
   // Theme settings props
-  codeTheme: string;
-  setCodeTheme: (theme: string) => void;
+  codeTheme: CodeTheme;
+  setCodeTheme: (theme: CodeTheme) => void;
 
   // Dynamic Ollama models
   models: OllamaModel[];
+
 }
 
 export default function Sidebar({
@@ -72,6 +75,10 @@ export default function Sidebar({
   models
 }: SidebarProps) {
   const [chatCopied, setChatCopied] = useState(false);
+  const themeId = useThemeStore((state) => state.themeId);
+  const darkMode = useThemeStore((state) => state.darkMode);
+  const setTheme = useThemeStore((state) => state.setTheme);
+  const setDarkMode = useThemeStore((state) => state.setDarkMode);
 
   // Group models by tier category
   const groupedModels = models.reduce((acc, model) => {
@@ -101,27 +108,28 @@ export default function Sidebar({
       setTimeout(() => setChatCopied(false), 2000);
     }
   };
+
   return (
-    <div className="w-[300px] border-r border-[#1a1c23] bg-[#0b0c11] flex flex-col shrink-0">
+    <div className="w-[300px] border-r border-border bg-background flex flex-col shrink-0">
       
       {/* LOGO */}
-      <div className="p-6 border-b border-[#1a1c23] flex items-center justify-between gap-3">
+      <div className="p-6 border-b border-border flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-            <Zap className="h-5 w-5 text-white" />
+          <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+            <Zap className="h-5 w-5 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-200 to-gray-400">
+            <h1 className="text-lg font-bold text-foreground">
               Multimodal Hub
             </h1>
-            <p className="text-xs text-gray-500">FastAPI Gateway</p>
+            <p className="text-xs text-muted-foreground">FastAPI Gateway</p>
           </div>
         </div>
         
         {/* NEW CHAT BUTTON */}
         <button
           onClick={createNewChat}
-          className="h-8 w-8 rounded-lg bg-[#14151f] border border-[#2b2d3c] hover:bg-[#1e202f] hover:text-white flex items-center justify-center text-indigo-300 transition-all"
+          className="h-8 w-8 rounded-lg bg-card border border-border hover:bg-secondary hover:text-foreground flex items-center justify-center text-foreground transition-all cursor-pointer"
           title="New Conversation"
         >
           <Plus className="h-4 w-4" />
@@ -129,17 +137,17 @@ export default function Sidebar({
       </div>
 
       {/* NAVIGATION CARD */}
-      <div className="p-4 border-b border-[#1a1c23] space-y-2">
-        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+      <div className="p-4 border-b border-border space-y-2">
+        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
           Workspace Nav
         </label>
         <div className="space-y-1">
           <button
             onClick={() => setActiveTab("chat")}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all text-left ${
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all text-left cursor-pointer ${
               activeTab === "chat"
-                ? "bg-violet-600/15 border border-violet-500/30 text-violet-300"
-                : "bg-transparent text-gray-400 hover:bg-[#14151b] hover:text-white"
+                ? "bg-primary/10 border border-primary/30 text-primary"
+                : "bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground"
             }`}
           >
             <MessageSquare className="h-4 w-4" />
@@ -147,52 +155,42 @@ export default function Sidebar({
           </button>
           <button
             onClick={() => setActiveTab("readme")}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all text-left ${
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all text-left cursor-pointer ${
               activeTab === "readme"
-                ? "bg-violet-600/15 border border-violet-500/30 text-violet-300"
-                : "bg-transparent text-gray-400 hover:bg-[#14151b] hover:text-white"
+                ? "bg-primary/10 border border-primary/30 text-primary"
+                : "bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground"
             }`}
           >
             <Terminal className="h-4 w-4" />
             Readme Doc Viewer
           </button>
-          <button
-            onClick={() => setActiveTab("agent")}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all text-left ${
-              activeTab === "agent"
-                ? "bg-violet-600/15 border border-violet-500/30 text-violet-300"
-                : "bg-transparent text-gray-400 hover:bg-[#14151b] hover:text-white"
-            }`}
-          >
-            <Cpu className="h-4 w-4" />
-            Agent workspace
-          </button>
         </div>
       </div>
 
-      {/* CONNECTION SETTINGS */}
-      <div className="p-4 border-b border-[#1a1c23] space-y-4">
+      {/* CONNECTION & APPEARANCE SETTINGS */}
+      <div className="p-4 border-b border-border space-y-4 overflow-y-auto max-h-[350px]">
+        {/* PROTOCOL SELECTOR */}
         <div>
-          <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">
+          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-2">
             Protocol Selector
           </label>
-          <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#14151b] rounded-lg border border-[#1e202b]">
+          <div className="grid grid-cols-2 gap-1.5 p-1 bg-card rounded-lg border border-border">
             <button
               onClick={() => setConnectionType("websocket")}
-              className={`py-1.5 px-3 rounded-md text-xs font-medium transition-all ${
+              className={`py-1.5 px-3 rounded-md text-xs font-medium transition-all cursor-pointer ${
                 connectionType === "websocket"
-                  ? "bg-violet-600 text-white shadow-sm"
-                  : "text-gray-400 hover:text-white"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               WebSockets
             </button>
             <button
               onClick={() => setConnectionType("http-sse")}
-              className={`py-1.5 px-3 rounded-md text-xs font-medium transition-all ${
+              className={`py-1.5 px-3 rounded-md text-xs font-medium transition-all cursor-pointer ${
                 connectionType === "http-sse"
-                  ? "bg-violet-600 text-white shadow-sm"
-                  : "text-gray-400 hover:text-white"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               HTTP (SSE)
@@ -201,9 +199,9 @@ export default function Sidebar({
         </div>
 
         {/* STATUS BLOCK */}
-        <div className="flex items-center justify-between bg-[#14151b] p-3 rounded-lg border border-[#1e202b]">
-          <span className="text-xs text-gray-400 flex items-center gap-1.5">
-            <Radio className="h-3.5 w-3.5 text-gray-500" />
+        <div className="flex items-center justify-between bg-card p-3 rounded-lg border border-border">
+          <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+            <Radio className="h-3.5 w-3.5 text-muted-foreground" />
             Gateway Status
           </span>
           <div className="flex items-center gap-1.5">
@@ -211,19 +209,19 @@ export default function Sidebar({
               <>
                 <span className={`h-2 w-2 rounded-full ${
                   wsStatus === "connected" 
-                    ? "bg-emerald-500 animate-pulse" 
+                    ? "bg-primary animate-pulse" 
                     : wsStatus === "connecting"
-                    ? "bg-amber-500 animate-pulse"
-                    : "bg-red-500"
+                    ? "bg-primary/70 animate-pulse"
+                    : "bg-destructive"
                 }`} />
-                <span className="text-xs font-semibold text-gray-300 uppercase">
+                <span className="text-xs font-semibold text-foreground uppercase">
                   {wsStatus}
                 </span>
               </>
             ) : (
               <>
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                <span className="text-xs font-semibold text-gray-300 uppercase">
+                <span className="h-2 w-2 rounded-full bg-primary" />
+                <span className="text-xs font-semibold text-foreground uppercase">
                   HTTP Ready
                 </span>
               </>
@@ -231,16 +229,63 @@ export default function Sidebar({
           </div>
         </div>
 
+        {/* APPEARANCE MODE TOGGLER */}
+        <div>
+          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-2">
+            Appearance Mode
+          </label>
+          <div className="grid grid-cols-2 gap-1.5 p-1 bg-card rounded-lg border border-border">
+            <button
+              onClick={() => setDarkMode(false)}
+              className={`py-1.5 px-3 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                !darkMode
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Sun className="h-3.5 w-3.5" />
+              Light
+            </button>
+            <button
+              onClick={() => setDarkMode(true)}
+              className={`py-1.5 px-3 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                darkMode
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Moon className="h-3.5 w-3.5" />
+              Dark
+            </button>
+          </div>
+        </div>
+
+        {/* APP COLOR THEME SELECTOR */}
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+            App Color Theme
+          </label>
+          <select
+            value={themeId}
+            onChange={(e) => setTheme(e.target.value as ThemeId)}
+            className="w-full py-2 px-3 rounded-lg text-xs font-medium bg-card border border-border text-foreground focus:outline-none focus:border-primary/50 transition-all cursor-pointer"
+          >
+            {THEMES.map((theme) => (
+              <option key={theme.id} value={theme.id}>{theme.name}</option>
+            ))}
+          </select>
+        </div>
+
         {/* OLLAMA MODEL SELECTOR */}
         {endpoint === "text-to-text" && (
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
               Active Ollama Model
             </label>
             <select
               value={modelName}
               onChange={(e) => setModelName(e.target.value)}
-              className="w-full py-2 px-3 rounded-lg text-xs font-medium bg-[#14151b] border border-[#1e202b] text-indigo-300 focus:outline-none focus:border-violet-500/50 transition-all cursor-pointer"
+              className="w-full py-2 px-3 rounded-lg text-xs font-medium bg-card border border-border text-foreground focus:outline-none focus:border-primary/50 transition-all cursor-pointer"
             >
               {models.length === 0 ? (
                 <>
@@ -256,9 +301,9 @@ export default function Sidebar({
                   const group = groupedModels[tier];
                   if (!group || group.length === 0) return null;
                   return (
-                    <optgroup key={tier} label={tier} className="bg-[#14151b] text-gray-500 font-bold text-[10px] uppercase tracking-wider">
+                    <optgroup key={tier} label={tier} className="bg-card text-muted-foreground font-bold text-[10px] uppercase tracking-wider">
                       {group.map((model) => (
-                        <option key={model.id} value={model.id} className="text-indigo-300 bg-[#14151b] font-medium text-xs normal-case tracking-normal">
+                        <option key={model.id} value={model.id} className="text-foreground bg-card font-medium text-xs normal-case tracking-normal">
                           {model.friendly_label}
                         </option>
                       ))}
@@ -272,30 +317,33 @@ export default function Sidebar({
 
         {/* CODE THEME SELECTOR */}
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block">
+          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
             Code Block Theme
           </label>
           <select
             value={codeTheme}
-            onChange={(e) => setCodeTheme(e.target.value)}
-            className="w-full py-2 px-3 rounded-lg text-xs font-medium bg-[#14151b] border border-[#1e202b] text-indigo-300 focus:outline-none focus:border-violet-500/50 transition-all cursor-pointer"
+            onChange={(e) => setCodeTheme(e.target.value as CodeTheme)}
+            className="w-full py-2 px-3 rounded-lg text-xs font-medium bg-card border border-border text-foreground focus:outline-none focus:border-primary/50 transition-all cursor-pointer"
           >
-            <option value="tomorrow">Tomorrow (Dark Classic)</option>
-            <option value="okaidia">Okaidia (High Contrast)</option>
-            <option value="twilight">Twilight (Retro Muted)</option>
-            <option value="default">Default (Light/Original)</option>
+            <option value="adaptive">Adaptive (Matches App Theme)</option>
+            <option value="github-light">GitHub Light</option>
+            <option value="github-dark">GitHub Dark</option>
+            <option value="dracula">Dracula</option>
+            <option value="nord">Nord</option>
+            <option value="solarized-light">Solarized Light</option>
+            <option value="solarized-dark">Solarized Dark</option>
           </select>
         </div>
       </div>
 
       {/* CHAT SESSION HISTORY */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 border-b border-[#1a1c23]">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 border-b border-border">
         <div className="space-y-2">
-          <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
             Chat History persisted
           </label>
           {sessions.length === 0 ? (
-            <div className="text-[10px] text-gray-600 text-center py-4 italic">
+            <div className="text-[10px] text-muted-foreground text-center py-4 italic">
               No saved threads. Start typing to persist.
             </div>
           ) : (
@@ -307,13 +355,13 @@ export default function Sidebar({
                     key={sess.id}
                     className={`group w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                       isActive 
-                        ? "bg-violet-600/10 border border-violet-500/30 text-violet-300 font-semibold" 
-                        : "text-gray-400 hover:bg-[#14151b] hover:text-white"
+                        ? "bg-primary/10 border border-primary/30 text-primary font-semibold" 
+                        : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                     }`}
                   >
                     <button
                       onClick={() => loadSession(sess.id)}
-                      className="flex-1 text-left truncate pr-2"
+                      className="flex-1 text-left truncate pr-2 cursor-pointer"
                       title={sess.title}
                     >
                       {sess.title}
@@ -323,7 +371,7 @@ export default function Sidebar({
                         e.stopPropagation();
                         deleteSession(sess.id);
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-gray-500 hover:text-red-400 transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-muted-foreground hover:text-destructive transition-opacity cursor-pointer"
                       title="Delete Thread"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -339,7 +387,7 @@ export default function Sidebar({
       {/* ENDPOINTS / MODELS */}
       <div className="h-[200px] overflow-y-auto p-4 space-y-4 shrink-0">
         <div>
-          <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-2">
+          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-2">
             Endpoints / Models
           </label>
           <div className="space-y-1.5">
@@ -347,10 +395,10 @@ export default function Sidebar({
             {/* Text to Text */}
             <button
               onClick={() => setEndpoint("text-to-text")}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs transition-all text-left ${
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs transition-all text-left cursor-pointer ${
                 endpoint === "text-to-text"
-                  ? "bg-violet-600/15 border border-violet-500/40 text-violet-300"
-                  : "bg-transparent border border-transparent text-gray-400 hover:bg-[#14151b] hover:text-white"
+                  ? "bg-primary/10 border border-primary/40 text-primary"
+                  : "bg-transparent border border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}
             >
               <MessageSquare className="h-4 w-4" />
@@ -362,10 +410,10 @@ export default function Sidebar({
             {/* Text to Image */}
             <button
               onClick={() => setEndpoint("text-to-image")}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs transition-all text-left ${
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs transition-all text-left cursor-pointer ${
                 endpoint === "text-to-image"
-                  ? "bg-violet-600/15 border border-violet-500/40 text-violet-300"
-                  : "bg-transparent border border-transparent text-gray-400 hover:bg-[#14151b] hover:text-white"
+                  ? "bg-primary/10 border border-primary/40 text-primary"
+                  : "bg-transparent border border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}
             >
               <ImageIcon className="h-4 w-4" />
@@ -377,10 +425,10 @@ export default function Sidebar({
             {/* Text & Image to Image */}
             <button
               onClick={() => setEndpoint("text-and-image-to-image")}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs transition-all text-left ${
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs transition-all text-left cursor-pointer ${
                 endpoint === "text-and-image-to-image"
-                  ? "bg-violet-600/15 border border-violet-500/40 text-violet-300"
-                  : "bg-transparent border border-transparent text-gray-400 hover:bg-[#14151b] hover:text-white"
+                  ? "bg-primary/10 border border-primary/40 text-primary"
+                  : "bg-transparent border border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}
             >
               <Sparkles className="h-4 w-4" />
@@ -392,10 +440,10 @@ export default function Sidebar({
             {/* Text to Video */}
             <button
               onClick={() => setEndpoint("text-to-video")}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs transition-all text-left ${
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs transition-all text-left cursor-pointer ${
                 endpoint === "text-to-video"
-                  ? "bg-violet-600/15 border border-violet-500/40 text-violet-300"
-                  : "bg-transparent border border-transparent text-gray-400 hover:bg-[#14151b] hover:text-white"
+                  ? "bg-primary/10 border border-primary/40 text-primary"
+                  : "bg-transparent border border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}
             >
               <Video className="h-4 w-4" />
@@ -409,15 +457,15 @@ export default function Sidebar({
       </div>
 
       {/* BOTTOM UTILS */}
-      <div className="p-4 border-t border-[#1a1c23] space-y-2 shrink-0">
+      <div className="p-4 border-t border-border space-y-2 shrink-0">
         {messages.length > 0 && (
           <button
             onClick={handleCopyChat}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold border border-[#2b2d3c] bg-[#14151f] text-indigo-300 hover:bg-[#1e202f] hover:text-white transition-all cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold border border-border bg-card text-foreground hover:bg-secondary hover:text-foreground transition-all cursor-pointer"
           >
             {chatCopied ? (
               <>
-                <Check className="h-3.5 w-3.5 text-emerald-400" />
+                <Check className="h-3.5 w-3.5 text-primary" />
                 Copied Conversation!
               </>
             ) : (
@@ -431,7 +479,7 @@ export default function Sidebar({
         <button
           onClick={clearChat}
           disabled={messages.length === 0}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold border border-red-500/30 text-red-400 hover:bg-red-950/20 disabled:opacity-40 disabled:hover:bg-transparent transition-all cursor-pointer"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold border border-destructive/30 text-destructive hover:bg-destructive/10 disabled:opacity-40 disabled:hover:bg-transparent transition-all cursor-pointer"
         >
           <Trash2 className="h-3.5 w-3.5" />
           Clear Conversation
