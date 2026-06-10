@@ -31,8 +31,35 @@ export type ModelEndpoint = "text-to-text" | "text-to-image" | "text-and-image-t
 export type ConnectionType = "websocket" | "http-sse";
 export type ActiveTab = "chat" | "readme";
 export type ChatMode = "ask" | "agent";
-export type CodeTheme = "adaptive" | "github-light" | "github-dark" | "dracula" | "nord" | "solarized-light" | "solarized-dark";
-
+export type CodeTheme =
+  | "adaptive"
+  | "github-light"
+  | "github-dark"
+  | "dracula"
+  | "nord"
+  | "solarized-light"
+  | "solarized-dark"
+  | "monokai"
+  | "one-dark"
+  | "one-light"
+  | "vs-dark"
+  | "vs-light"
+  | "synthwave84"
+  | "night-owl"
+  | "light-owl"
+  | "shades-of-purple"
+  | "gruvbox-dark"
+  | "gruvbox-light"
+  | "ayu-light"
+  | "ayu-dark"
+  | "ayu-mirage"
+  | "cobalt2"
+  | "cyberpunk"
+  | "tomorrow-night"
+  | "tomorrow-light"
+  | "darcula-dark"
+  | "darcula-light";
+  
 export interface ChatSession {
   id: string;
   title: string;

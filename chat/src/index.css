@@ -159,3 +159,27 @@ tr:hover {
   margin-bottom: 0 !important;
   display: inline;
 }
+
+/* CodeMirror Editor Styling overrides */
+.CodeMirror {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+  font-size: 13px !important;
+  height: auto !important;
+  width: 100% !important;
+  padding: 12px 16px !important;
+}
+
+.CodeMirror-scroll {
+  max-height: 520px;
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+}
+
+.CodeMirror-lines {
+  padding: 0 !important;
+}
+
+.code-block__editor {
+  background: transparent !important;
+}
+

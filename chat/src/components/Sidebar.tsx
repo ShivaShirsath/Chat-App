@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { ModelEndpoint, ConnectionType, ActiveTab, ChatSession, Message, OllamaModel, CodeTheme } from "../types/chat";
 import { THEMES, useThemeStore, type ThemeId } from "../store/themeStore";
+import { codeThemeLabels, lightThemes, darkThemes, getCodeThemeCounterpart } from "../utils/codeThemes";
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -79,6 +80,14 @@ export default function Sidebar({
   const darkMode = useThemeStore((state) => state.darkMode);
   const setTheme = useThemeStore((state) => state.setTheme);
   const setDarkMode = useThemeStore((state) => state.setDarkMode);
+
+  const handleToggleDarkMode = (newDark: boolean) => {
+    setDarkMode(newDark);
+    const counterpart = getCodeThemeCounterpart(codeTheme, newDark);
+    if (counterpart) {
+      setCodeTheme(counterpart);
+    }
+  };
 
   // Group models by tier category
   const groupedModels = models.reduce((acc, model) => {
@@ -236,7 +245,7 @@ export default function Sidebar({
           </label>
           <div className="grid grid-cols-2 gap-1.5 p-1 bg-card rounded-lg border border-border">
             <button
-              onClick={() => setDarkMode(false)}
+              onClick={() => handleToggleDarkMode(false)}
               className={`py-1.5 px-3 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 !darkMode
                   ? "bg-primary text-primary-foreground shadow-sm"
@@ -247,7 +256,7 @@ export default function Sidebar({
               Light
             </button>
             <button
-              onClick={() => setDarkMode(true)}
+              onClick={() => handleToggleDarkMode(true)}
               className={`py-1.5 px-3 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 darkMode
                   ? "bg-primary text-primary-foreground shadow-sm"
@@ -325,13 +334,42 @@ export default function Sidebar({
             onChange={(e) => setCodeTheme(e.target.value as CodeTheme)}
             className="w-full py-2 px-3 rounded-lg text-xs font-medium bg-card border border-border text-foreground focus:outline-none focus:border-primary/50 transition-all cursor-pointer"
           >
-            <option value="adaptive">Adaptive (Matches App Theme)</option>
-            <option value="github-light">GitHub Light</option>
-            <option value="github-dark">GitHub Dark</option>
-            <option value="dracula">Dracula</option>
-            <option value="nord">Nord</option>
-            <option value="solarized-light">Solarized Light</option>
-            <option value="solarized-dark">Solarized Dark</option>
+            <option value="adaptive">{codeThemeLabels["adaptive"]}</option>
+            {darkMode ? (
+              <>
+                <optgroup label="Dark Themes" className="bg-card text-muted-foreground font-semibold">
+                  {darkThemes.map((option) => (
+                    <option key={option} value={option} className="text-foreground font-medium bg-card">
+                      {codeThemeLabels[option]}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Light Themes" className="bg-card text-muted-foreground font-semibold">
+                  {lightThemes.map((option) => (
+                    <option key={option} value={option} className="text-foreground font-medium bg-card">
+                      {codeThemeLabels[option]}
+                    </option>
+                  ))}
+                </optgroup>
+              </>
+            ) : (
+              <>
+                <optgroup label="Light Themes" className="bg-card text-muted-foreground font-semibold">
+                  {lightThemes.map((option) => (
+                    <option key={option} value={option} className="text-foreground font-medium bg-card">
+                      {codeThemeLabels[option]}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Dark Themes" className="bg-card text-muted-foreground font-semibold">
+                  {darkThemes.map((option) => (
+                    <option key={option} value={option} className="text-foreground font-medium bg-card">
+                      {codeThemeLabels[option]}
+                    </option>
+                  ))}
+                </optgroup>
+              </>
+            )}
           </select>
         </div>
       </div>
