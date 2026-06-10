@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, ForeignKey
+from sqlalchemy import Column, String, DateTime, ForeignKey, Boolean, Integer
 from sqlalchemy.orm import relationship
 from app.db.session import Base
 
@@ -28,5 +28,13 @@ class ChatMessage(Base):
     media_url = Column(String, nullable=True)  # File path if image/video is generated/uploaded
     media_type = Column(String, nullable=True)  # image, video
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Agent metadata columns
+    is_streaming = Column(Boolean, default=False, nullable=True)
+    thoughts = Column(String, nullable=True)  # JSON stringified list
+    terminal_logs = Column(String, nullable=True)
+    diffs = Column(String, nullable=True)  # JSON stringified dict
+    permission_request = Column(String, nullable=True)  # JSON stringified dict
+    thinking_time = Column(Integer, nullable=True)
     
     session = relationship("ChatSession", back_populates="messages")

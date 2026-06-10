@@ -24,10 +24,11 @@ import "codemirror/theme/yeti.css";
 import "codemirror/theme/zenburn.css";
 
 // Import modes
-import "codemirror/mode/javascript/javascript";
-import "codemirror/mode/python/python";
 import "codemirror/mode/xml/xml";
+import "codemirror/mode/javascript/javascript";
 import "codemirror/mode/css/css";
+import "codemirror/mode/htmlmixed/htmlmixed";
+import "codemirror/mode/python/python";
 import "codemirror/mode/shell/shell";
 import "codemirror/mode/sql/sql";
 import "codemirror/mode/markdown/markdown";
@@ -100,6 +101,8 @@ function getCodeMirrorMode(language: string): string {
     case "py":
       return "python";
     case "html":
+    case "markup":
+      return "htmlmixed";
     case "xml":
       return "xml";
     case "css":
@@ -200,7 +203,7 @@ export default function CodeBlock({ code, language = "plaintext", hideHeader = f
       {!hideHeader && (
         <div className="code-block__header flex items-center justify-between px-4 py-2 border-b">
           <span className="text-[10px] font-bold uppercase tracking-wider">
-            {isDiff ? "diff" : normalizedLang}
+            {isDiff ? "diff" : (normalizedLang === "markup" ? "html" : normalizedLang)}
           </span>
           <button
             onClick={handleCopy}

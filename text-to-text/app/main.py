@@ -13,9 +13,32 @@ from app.api.v1.endpoints import (
 )
 from app.db.session import engine
 from app.db.models import Base
+from sqlalchemy import text
 
 # Create SQLite tables on startup
 Base.metadata.create_all(bind=engine)
+
+# Dynamic self-healing SQLite migrations for agent metadata columns
+with engine.connect() as conn:
+    try:
+        res = conn.execute(text("PRAGMA table_info(chat_messages)"))
+        columns = [row[1] for row in res.fetchall()]
+        
+        if "is_streaming" not in columns:
+            conn.execute(text("ALTER TABLE chat_messages ADD COLUMN is_streaming BOOLEAN DEFAULT 0"))
+        if "thoughts" not in columns:
+            conn.execute(text("ALTER TABLE chat_messages ADD COLUMN thoughts TEXT"))
+        if "terminal_logs" not in columns:
+            conn.execute(text("ALTER TABLE chat_messages ADD COLUMN terminal_logs TEXT"))
+        if "diffs" not in columns:
+            conn.execute(text("ALTER TABLE chat_messages ADD COLUMN diffs TEXT"))
+        if "permission_request" not in columns:
+            conn.execute(text("ALTER TABLE chat_messages ADD COLUMN permission_request TEXT"))
+        if "thinking_time" not in columns:
+            conn.execute(text("ALTER TABLE chat_messages ADD COLUMN thinking_time INTEGER"))
+        conn.commit()
+    except Exception as e:
+        print(f"Self-healing database migration failed or skipped: {e}")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

@@ -14,6 +14,7 @@ export function useChat() {
   // Persisted SQLite Session states
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeAgentSessions, setActiveAgentSessions] = useState<string[]>([]);
 
   // Coder Agent States
   const [chatMode, setChatMode] = useState<ChatMode>("ask");
@@ -138,6 +139,9 @@ export function useChat() {
 
   const handleStopAgent = useCallback(() => {
     if (agentSocketRef.current) {
+      if (agentSocketRef.current.readyState === WebSocket.OPEN) {
+        agentSocketRef.current.send(JSON.stringify({ type: "stop_agent" }));
+      }
       agentSocketRef.current.close();
     }
     setIsLoading(false);
@@ -146,15 +150,32 @@ export function useChat() {
   // Fetch list of active chat sessions from gateway
   const fetchSessions = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/sessions`);
-      if (res.ok) {
-        const data = await res.json();
+      const [sessRes, activeRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/v1/sessions`),
+        fetch(`${API_BASE_URL}/api/v1/agent/active`)
+      ]);
+      
+      if (sessRes.ok) {
+        const data = await sessRes.json();
         setSessions(data);
+      }
+      
+      if (activeRes.ok) {
+        const activeIds = await activeRes.json();
+        setActiveAgentSessions(activeIds);
       }
     } catch (e) {
       console.error("Failed to fetch sessions:", e);
     }
   }, []);
+
+  // Poll sessions and active agents status every 5 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      fetchSessions();
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [fetchSessions]);
 
   // Fetch list of active Ollama models from gateway
   const fetchModels = useCallback(async () => {
@@ -182,6 +203,147 @@ export function useChat() {
     fetchModels();
   }, [fetchSessions, fetchModels]);
 
+  const connectAgentWebSocket = useCallback((
+    sessId: string,
+    msgId: string,
+    folder?: string,
+    inst?: string,
+    model?: string
+  ) => {
+    if (agentSocketRef.current) {
+      agentSocketRef.current.close();
+    }
+    
+    let currentSessId = sessId;
+    setIsLoading(true);
+    const wsUrl = `${WS_BASE_URL}/api/v1/agent/run`;
+    const socket = new WebSocket(wsUrl);
+    agentSocketRef.current = socket;
+    
+    socket.onopen = () => {
+      if (folder && inst) {
+        socket.send(JSON.stringify({
+          folder_path: folder,
+          instruction: inst,
+          model_name: model || modelName,
+          session_id: sessId,
+          agent_msg_id: msgId
+        }));
+      } else {
+        // Reconnect handshake
+        socket.send(JSON.stringify({
+          session_id: sessId,
+          reconnect: true
+        }));
+      }
+    };
+    
+    socket.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        
+        if (message.type === "session_created" || message.event === "session_created") {
+          currentSessId = message.session_id;
+          sessionIdRef.current = message.session_id;
+          setSessionId(message.session_id);
+          fetchSessions();
+          return;
+        }
+        
+        setMessages((prev) => {
+          if (sessionIdRef.current !== currentSessId) return prev;
+          
+          const list = [...prev];
+          const idx = list.findIndex(m => m.id === msgId);
+          if (idx === -1) return prev;
+          const msg = { ...list[idx] };
+          
+          if (message.type === "thought") {
+            const currentThoughts = msg.thoughts || [];
+            if (message.replay) {
+              if (!currentThoughts.includes(message.content)) {
+                msg.thoughts = [...currentThoughts, message.content];
+              }
+            } else {
+              msg.thoughts = [...currentThoughts, message.content];
+            }
+          } else if (message.type === "terminal") {
+            if (message.replay) {
+              msg.terminalLogs = message.content;
+            } else {
+              msg.terminalLogs = (msg.terminalLogs || "") + message.content;
+            }
+          } else if (message.type === "diff") {
+            msg.diffs = message.diffs || {};
+          } else if (message.type === "permission_request") {
+            msg.permissionRequest = {
+              question: message.question,
+              options: message.options || ["Yes", "No"]
+            };
+          } else if (message.type === "permission_response") {
+            if (msg.permissionRequest) {
+              msg.permissionRequest.answeredChoice = message.choice;
+            }
+          } else if (message.type === "done") {
+            msg.content = message.summary;
+            msg.isStreaming = false;
+            msg.thinkingTime = message.thinking_time || agentElapsedTime;
+            setIsLoading(false);
+            socket.close();
+            if (folder) {
+              validateSpecificPath(folder, false);
+            }
+            fetchSessions();
+          } else if (message.type === "error") {
+            msg.content = `Error: ${message.message}`;
+            msg.isStreaming = false;
+            msg.thinkingTime = message.thinking_time || agentElapsedTime;
+            setIsLoading(false);
+            socket.close();
+            fetchSessions();
+          }
+          
+          list[idx] = msg;
+          return list;
+        });
+      } catch (err) {
+        console.error("Failed to parse agent socket message:", err);
+      }
+    };
+    
+    socket.onclose = () => {
+      if (sessionIdRef.current === currentSessId) {
+        setIsLoading(false);
+        setMessages((prev) => {
+          const list = [...prev];
+          const idx = list.findIndex(m => m.id === msgId);
+          if (idx !== -1 && list[idx].isStreaming) {
+            list[idx].isStreaming = false;
+            list[idx].thinkingTime = agentElapsedTime;
+          }
+          return list;
+        });
+      }
+    };
+    
+    socket.onerror = (err) => {
+      console.error("Agent socket error:", err);
+      if (sessionIdRef.current === currentSessId) {
+        setIsLoading(false);
+        setMessages((prev) => {
+          const list = [...prev];
+          const idx = list.findIndex(m => m.id === msgId);
+          if (idx !== -1) {
+            list[idx].content = "Error: Connection lost or server error occurred.";
+            list[idx].isStreaming = false;
+            list[idx].thinkingTime = agentElapsedTime;
+          }
+          return list;
+        });
+      }
+    };
+  }, [modelName, agentElapsedTime, fetchSessions, validateSpecificPath]);
+
   // Load message logs of a specific session
   const loadSession = useCallback(async (id: string) => {
     try {
@@ -196,17 +358,34 @@ export function useChat() {
           content: m.content,
           // Prepend server host to relative storage paths
           mediaUrl: m.media_url ? `${API_BASE_URL}${m.media_url}` : undefined,
-          mediaType: m.media_type || undefined
+          mediaType: m.media_type || undefined,
+          isStreaming: m.is_streaming || undefined,
+          thoughts: m.thoughts || undefined,
+          terminalLogs: m.terminal_logs || undefined,
+          diffs: m.diffs || undefined,
+          permissionRequest: m.permission_request || undefined,
+          thinkingTime: m.thinking_time || undefined
         }));
         setMessages(mapped);
         setSessionId(id);
+        
+        // Reconnect if the last message shows an active running agent
+        const lastMsg = mapped[mapped.length - 1];
+        if (lastMsg && lastMsg.role === "assistant" && lastMsg.isStreaming) {
+          connectAgentWebSocket(id, lastMsg.id);
+        } else {
+          if (agentSocketRef.current) {
+            agentSocketRef.current.close();
+            agentSocketRef.current = null;
+          }
+        }
       }
     } catch (e) {
       console.error(`Failed to load messages for session ${id}:`, e);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [connectAgentWebSocket]);
 
   // Delete session from history
   const deleteSession = useCallback(async (id: string) => {
@@ -229,6 +408,10 @@ export function useChat() {
 
   // Start a fresh chat session
   const createNewChat = useCallback(() => {
+    if (agentSocketRef.current) {
+      agentSocketRef.current.close();
+      agentSocketRef.current = null;
+    }
     setSessionId(null);
     setMessages([]);
   }, []);
@@ -559,100 +742,14 @@ export function useChat() {
       };
 
       setMessages((prev) => [...prev, newUserMsg, newAgentMsg]);
-
-      // Establish WebSocket connection
-      const wsUrl = `${WS_BASE_URL}/api/v1/agent/run`;
-      const socket = new WebSocket(wsUrl);
-      agentSocketRef.current = socket;
-
-      socket.onopen = () => {
-        socket.send(JSON.stringify({
-          folder_path: folderPath.trim(),
-          instruction: content,
-          model_name: modelName,
-          session_id: sessionIdRef.current || undefined
-        }));
-      };
-
-      socket.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data);
-
-          // If a new session was created on the backend
-          if (message.type === "session_created" || message.event === "session_created") {
-            setSessionId(message.session_id);
-            fetchSessions();
-            return;
-          }
-
-          setMessages((prev) => {
-            const list = [...prev];
-            const idx = list.findIndex(m => m.id === agentMsgId);
-            if (idx === -1) return prev;
-            const msg = { ...list[idx] };
-
-            if (message.type === "thought") {
-              msg.thoughts = [...(msg.thoughts || []), message.content];
-            } else if (message.type === "terminal") {
-              msg.terminalLogs = (msg.terminalLogs || "") + message.content;
-            } else if (message.type === "diff") {
-              msg.diffs = message.diffs || {};
-            } else if (message.type === "permission_request") {
-              msg.permissionRequest = {
-                question: message.question,
-                options: message.options || ["Yes", "No"]
-              };
-            } else if (message.type === "done") {
-              msg.content = message.summary;
-              msg.isStreaming = false;
-              msg.thinkingTime = agentElapsedTime;
-              setIsLoading(false);
-              socket.close();
-              validateSpecificPath(folderPath.trim(), false); // Refresh files tree
-              fetchSessions(); // Refresh sessions list to show title
-            } else if (message.type === "error") {
-              msg.content = `Error: ${message.message}`;
-              msg.isStreaming = false;
-              msg.thinkingTime = agentElapsedTime;
-              setIsLoading(false);
-              socket.close();
-            }
-
-            list[idx] = msg;
-            return list;
-          });
-        } catch (err) {
-          console.error("Failed to parse agent socket message:", err);
-        }
-      };
-
-      socket.onclose = () => {
-        setIsLoading(false);
-        setMessages((prev) => {
-          const list = [...prev];
-          const idx = list.findIndex(m => m.id === agentMsgId);
-          if (idx !== -1 && list[idx].isStreaming) {
-            list[idx].isStreaming = false;
-            list[idx].thinkingTime = agentElapsedTime;
-          }
-          return list;
-        });
-      };
-
-      socket.onerror = (err) => {
-        console.error("Agent socket error:", err);
-        setIsLoading(false);
-        setMessages((prev) => {
-          const list = [...prev];
-          const idx = list.findIndex(m => m.id === agentMsgId);
-          if (idx !== -1) {
-            list[idx].content = "Error: Connection lost or server error occurred.";
-            list[idx].isStreaming = false;
-            list[idx].thinkingTime = agentElapsedTime;
-          }
-          return list;
-        });
-      };
+      
+      connectAgentWebSocket(
+        sessionIdRef.current || `temp-${Date.now()}`,
+        agentMsgId,
+        folderPath.trim(),
+        content,
+        modelName
+      );
 
       return;
     }
@@ -713,6 +810,10 @@ export function useChat() {
   }, [messages, endpoint, connectionType, modelName, chatMode, folderPath, isValidated, isLoading, agentElapsedTime, fetchSessions, validateSpecificPath]);
 
   const clearChat = useCallback(() => {
+    if (agentSocketRef.current) {
+      agentSocketRef.current.close();
+      agentSocketRef.current = null;
+    }
     // If there is an active session, delete it from the DB
     if (sessionIdRef.current) {
       deleteSession(sessionIdRef.current);
@@ -742,6 +843,7 @@ export function useChat() {
     loadSession,
     deleteSession,
     createNewChat,
+    activeAgentSessions,
 
     // Coder Agent exports
     chatMode,

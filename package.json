@@ -1,0 +1,21 @@
+{
+  "name": "chat-app",
+  "version": "1.0.0",
+  "description": "chat app with frontend and backends ",
+  "homepage": "https://github.com/ShivaShirsath/Chat-App#readme",
+  "bugs": {
+    "url": "https://github.com/ShivaShirsath/Chat-App/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ShivaShirsath/Chat-App.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "kill -9 $(lsof -t -i:5173 && lsof -t -i:8001) 2>/dev/null; sleep 1; cd chat && npm run dev & cd text-to-text && ./venv/bin/uvicorn app.main:app --reload --port 8001"
+  }
+}

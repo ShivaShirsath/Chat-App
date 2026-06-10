@@ -32,6 +32,7 @@ export default function App() {
     loadSession,
     deleteSession,
     createNewChat,
+    activeAgentSessions,
 
     // Coder Agent integrations
     chatMode,
@@ -226,6 +227,7 @@ export default function App() {
         codeTheme={codeTheme}
         setCodeTheme={setCodeTheme}
         models={models}
+        activeAgentSessions={activeAgentSessions}
       />
 
       {/* MAIN CONTAINER */}

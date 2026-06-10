@@ -6,7 +6,7 @@ import asyncio
 import difflib
 import subprocess
 import platform
-from typing import Callable, Awaitable
+from typing import Callable, Awaitable, Optional
 from app.core.config import settings
 
 class AgentService:
@@ -171,7 +171,8 @@ class AgentService:
         folder_path: str,
         instruction: str,
         model_name: str,
-        event_callback: Callable[[dict], Awaitable[None]]
+        event_callback: Callable[[dict], Awaitable[None]],
+        response_queue: Optional[asyncio.Queue] = None
     ):
         """
         Runs the agent loop on a target folder with the user instruction.
@@ -266,8 +267,9 @@ JSON RESPONSE FORMAT EXAMPLE:
         history.append({"role": "user", "content": f"User Instruction: {instruction}"})
 
         # Clear queue
-        while not self.response_queue.empty():
-            self.response_queue.get_nowait()
+        queue = response_queue if response_queue is not None else self.response_queue
+        while not queue.empty():
+            queue.get_nowait()
 
         await event_callback({
             "type": "thought",
@@ -357,7 +359,7 @@ JSON RESPONSE FORMAT EXAMPLE:
                 
                 # Wait for user input from the WebSocket queue
                 try:
-                    user_response = await asyncio.wait_for(self.response_queue.get(), timeout=300.0)
+                    user_response = await asyncio.wait_for(queue.get(), timeout=300.0)
                     tool_output = f"User selected/answered: {user_response}"
                     await event_callback({
                         "type": "thought",

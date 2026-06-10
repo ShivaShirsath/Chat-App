@@ -46,6 +46,7 @@ interface SidebarProps {
   // Dynamic Ollama models
   models: OllamaModel[];
 
+  activeAgentSessions?: string[];
 }
 
 export default function Sidebar({
@@ -73,7 +74,9 @@ export default function Sidebar({
   setCodeTheme,
 
   // Dynamic Ollama models
-  models
+  models,
+
+  activeAgentSessions
 }: SidebarProps) {
   const [chatCopied, setChatCopied] = useState(false);
   const themeId = useThemeStore((state) => state.themeId);
@@ -399,10 +402,16 @@ export default function Sidebar({
                   >
                     <button
                       onClick={() => loadSession(sess.id)}
-                      className="flex-1 text-left truncate pr-2 cursor-pointer"
+                      className="flex-1 text-left truncate pr-2 cursor-pointer flex items-center gap-1.5"
                       title={sess.title}
                     >
-                      {sess.title}
+                      <span className="truncate">{sess.title}</span>
+                      {activeAgentSessions?.includes(sess.id) && (
+                        <span className="flex h-2 w-2 relative shrink-0">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                      )}
                     </button>
                     <button
                       onClick={(e) => {

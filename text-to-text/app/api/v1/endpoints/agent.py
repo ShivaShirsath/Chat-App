@@ -5,12 +5,20 @@ import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, status
 from pydantic import BaseModel
 from app.services.agent_service import AgentService
+from app.services.agent_manager import agent_manager, agent_task_wrapper, broadcast_agent_event
 from app.db.session import SessionLocal
 from app.db.models import ChatSession, ChatMessage
 from datetime import datetime
 
 router = APIRouter()
 agent_service = AgentService()
+
+@router.get("/active")
+async def get_active_agents():
+    """
+    Returns list of active session IDs currently running background agents.
+    """
+    return list(agent_manager.active_agents.keys())
 
 @router.post("/select-folder")
 async def select_folder():
@@ -81,24 +89,108 @@ async def validate_path(request: PathValidationRequest):
 @router.websocket("/run")
 async def run_agent_ws(websocket: WebSocket):
     """
-    WebSocket endpoint that receives run configuration, runs the agent loop,
+    WebSocket endpoint that receives run configuration, runs/reconnects the agent loop,
     and listens for user responses to permission prompts.
     """
     await websocket.accept()
     
-    agent_service = AgentService()
-    db = SessionLocal()
-    session_id = None
-    
     try:
-        # 1. Wait for initial config message
         config_data = await websocket.receive_text()
         config = json.loads(config_data)
+    except Exception:
+        await websocket.close()
+        return
+
+    session_id = config.get("session_id")
+    is_reconnect = config.get("reconnect", False)
+    
+    state = None
+    if session_id:
+        state = agent_manager.get_agent(session_id)
         
+    if state:
+        # Re-attach to the active agent state
+        state.websockets.add(websocket)
+        
+        # Send session created handshake back to confirm
+        await websocket.send_text(json.dumps({
+            "type": "session_created",
+            "session_id": state.session_id
+        }))
+        
+        # Replay thoughts to client
+        for thought in state.thoughts:
+            await websocket.send_text(json.dumps({
+                "type": "thought",
+                "content": thought,
+                "replay": True
+            }))
+            
+        # Replay terminal logs
+        if state.terminal_logs:
+            await websocket.send_text(json.dumps({
+                "type": "terminal",
+                "content": state.terminal_logs,
+                "replay": True
+            }))
+            
+        # Replay diffs
+        if state.diffs:
+            await websocket.send_text(json.dumps({
+                "type": "diff",
+                "diffs": state.diffs,
+                "replay": True
+            }))
+            
+        # Replay pending permission request if active
+        if state.permission_request:
+            await websocket.send_text(json.dumps({
+                "type": "permission_request",
+                "question": state.permission_request["question"],
+                "options": state.permission_request["options"],
+                "answeredChoice": state.permission_request.get("answeredChoice"),
+                "replay": True
+            }))
+            
+        # Wait for messages on the newly attached websocket
+        try:
+            while state.is_streaming:
+                message_text = await websocket.receive_text()
+                msg = json.loads(message_text)
+                
+                if msg.get("type") == "permission_response":
+                    choice = msg.get("choice")
+                    await broadcast_agent_event(state, {
+                        "type": "permission_response",
+                        "choice": choice
+                    })
+                    await state.response_queue.put(choice)
+                elif msg.get("type") in ["stop", "stop_agent"]:
+                    agent_manager.stop_agent(state.session_id)
+                    break
+        except WebSocketDisconnect:
+            pass
+        finally:
+            state.websockets.discard(websocket)
+            
+    else:
+        # If the client requested a reconnect but the agent is not running
+        if is_reconnect:
+            await websocket.send_text(json.dumps({
+                "type": "error",
+                "message": "Agent execution has already completed or does not exist."
+            }))
+            await websocket.close()
+            return
+            
+        # New execution path
         folder_path = config.get("folder_path")
         instruction = config.get("instruction")
         model_name = config.get("model_name", "llama3.2:latest")
-        session_id = config.get("session_id")
+        agent_msg_id = config.get("agent_msg_id")
+
+        if session_id and session_id.startswith("temp-"):
+            session_id = None
         
         if not folder_path or not instruction:
             await websocket.send_text(json.dumps({
@@ -107,110 +199,80 @@ async def run_agent_ws(websocket: WebSocket):
             }))
             await websocket.close()
             return
-
-        # Resolve or create ChatSession
-        if not session_id:
-            title = instruction[:30] + "..." if len(instruction) > 30 else instruction
-            session = ChatSession(title=f"[Agent] {title}")
-            db.add(session)
-            db.commit()
-            db.refresh(session)
-            session_id = session.id
             
-            # Notify client of the newly created session
-            await websocket.send_text(json.dumps({
-                "type": "session_created",
-                "session_id": session_id,
-                "title": session.title
-            }))
-        else:
-            session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
-            if not session:
-                session = ChatSession(id=session_id, title=f"[Agent] Run")
+        # Create or fetch session
+        db = SessionLocal()
+        try:
+            if not session_id:
+                title = instruction[:30] + "..." if len(instruction) > 30 else instruction
+                session = ChatSession(title=f"[Agent] {title}")
                 db.add(session)
                 db.commit()
                 db.refresh(session)
-
-        # Save User Message to DB
-        db_user_msg = ChatMessage(
-            session_id=session_id,
-            role="user",
-            content=instruction
-        )
-        db.add(db_user_msg)
-        db.commit()
-
-        # 2. Callback function to send events back over WebSocket
-        async def event_callback(event: dict):
-            try:
-                # If done, save the final agent summary content to DB
-                if event.get("type") == "done":
-                    db_assistant_msg = ChatMessage(
-                        session_id=session_id,
-                        role="assistant",
-                        content=event.get("summary", "Task completed.")
-                    )
-                    db.add(db_assistant_msg)
-                    session.updated_at = datetime.utcnow()
+                session_id = session.id
+                
+                # Notify client of the newly created session
+                await websocket.send_text(json.dumps({
+                    "type": "session_created",
+                    "session_id": session_id,
+                    "title": session.title
+                }))
+            else:
+                session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
+                if not session:
+                    session = ChatSession(id=session_id, title=f"[Agent] Run")
+                    db.add(session)
                     db.commit()
-                elif event.get("type") == "error":
-                    db_assistant_msg = ChatMessage(
-                        session_id=session_id,
-                        role="assistant",
-                        content=f"Error: {event.get('message', 'Unknown error occurred.')}"
-                    )
-                    db.add(db_assistant_msg)
-                    session.updated_at = datetime.utcnow()
-                    db.commit()
+                    db.refresh(session)
                     
-                await websocket.send_text(json.dumps(event))
-            except Exception:
-                # Socket might have closed
-                pass
-
-        # 3. Start the agent task in the background
-        agent_task = asyncio.create_task(
-            agent_service.run_agent(
-                folder_path=folder_path,
-                instruction=instruction,
-                model_name=model_name,
-                event_callback=event_callback
+                    # Notify client of the newly created session
+                    await websocket.send_text(json.dumps({
+                        "type": "session_created",
+                        "session_id": session_id,
+                        "title": session.title
+                    }))
+                    
+            # Save User Message to DB
+            db_user_msg = ChatMessage(
+                session_id=session_id,
+                role="user",
+                content=instruction
             )
+            db.add(db_user_msg)
+            db.commit()
+        finally:
+            db.close()
+            
+        # Start the agent background task via manager
+        state = agent_manager.start_agent(
+            session_id=session_id,
+            instruction=instruction,
+            folder_path=folder_path,
+            model_name=model_name,
+            task_coro=agent_task_wrapper,
+            agent_msg_id=agent_msg_id
         )
         
-        # 4. Listen for user input while task is running
-        while not agent_task.done():
-            try:
-                # Listen with a short timeout to keep checking if the agent completed
-                message_text = await asyncio.wait_for(websocket.receive_text(), timeout=1.0)
+        # Add the starting websocket
+        state.websockets.add(websocket)
+        
+        # Listen on the socket
+        try:
+            while state.is_streaming:
+                message_text = await websocket.receive_text()
                 msg = json.loads(message_text)
                 
-                # Check for permission responses
                 if msg.get("type") == "permission_response":
                     choice = msg.get("choice")
-                    await agent_service.response_queue.put(choice)
-            except asyncio.TimeoutError:
-                continue
-            except WebSocketDisconnect:
-                break
-                
-        # Wait for the task to fully finish in case of any unhandled errors
-        if not agent_task.done():
-            await agent_task
-        
-    except WebSocketDisconnect:
-        pass
-    except Exception as e:
-        try:
-            await websocket.send_text(json.dumps({
-                "type": "error",
-                "message": f"Server error inside agent runner: {str(e)}"
-            }))
-        except Exception:
+                    await broadcast_agent_event(state, {
+                        "type": "permission_response",
+                        "choice": choice
+                    })
+                    await state.response_queue.put(choice)
+                elif msg.get("type") in ["stop", "stop_agent"]:
+                    agent_manager.stop_agent(state.session_id)
+                    break
+        except WebSocketDisconnect:
             pass
-    finally:
-        db.close()
-        try:
-            await websocket.close()
-        except Exception:
-            pass
+        finally:
+            state.websockets.discard(websocket)
